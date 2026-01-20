@@ -207,7 +207,7 @@
             </script>
 
 
-            <!-- Attendance Sidebar Menu -->
+
             <!-- Attendance Sidebar Menu -->
             <div class="space-y-1">
                 <button onclick="toggleAttendanceMenu()"
@@ -265,11 +265,61 @@
 
 
 
-            <a href="expenses/expenses.php"
-                class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800/50 transition-colors sidebar-link">
-                <i class="fas fa-wallet w-5"></i>
-                <span>Expenses</span>
-            </a>
+            <!-- Expenses -->
+            <div class="space-y-1">
+                <button onclick="toggleExpensesMenu()"
+                    class="flex items-center justify-between w-full p-3 rounded-lg hover:bg-gray-800/50 transition-colors sidebar-link">
+                    <span class="flex items-center gap-3">
+                        <i class="fas fa-wallet w-5"></i>
+                        <span>Expenses</span>
+                    </span>
+                    <i class="fas fa-chevron-down text-sm transition-transform" id="expensesChevron"></i>
+                </button>
+
+                <div id="expensesMenu" class="ml-6 space-y-1 hidden">
+                    <a href="expenses/expenses.php"
+                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/30 transition-colors text-sm">
+                        <i class="fas fa-list w-4"></i>
+                        <span>All Expenses</span>
+                    </a>
+                    <a href="expenses/add_expense.php"
+                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/30 transition-colors text-sm">
+                        <i class="fas fa-plus w-4"></i>
+                        <span>Add Expense</span>
+                    </a>
+                    <a href="expenses/expense_categories.php"
+                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/30 transition-colors text-sm">
+                        <i class="fas fa-tags w-4"></i>
+                        <span>Categories</span>
+                    </a>
+                </div>
+            </div>
+
+            <script>
+                function toggleExpensesMenu() {
+                    const menu = document.getElementById('expensesMenu');
+                    const chevron = document.getElementById('expensesChevron');
+                    menu.classList.toggle('hidden');
+                    chevron.classList.toggle('rotate-180');
+                }
+            </script>
+            <!-- Donations -->
+            <div class="space-y-1">
+                <button onclick="toggleDonationsMenu()"
+                    class="flex items-center justify-between w-full p-3 rounded-lg hover:bg-gray-800/50 transition-colors sidebar-link">
+                    <span class="flex items-center gap-3">
+                        <i class="fas fa-hand-holding-heart w-5"></i>
+                        <span>Donations</span>
+                    </span>
+                    <i class="fas fa-chevron-down text-sm" id="donationsChevron"></i>
+                </button>
+
+                <div id="donationsMenu" class="ml-6 space-y-1 hidden">
+                    <a href="donations/donations.php" class="submenu-link">All Donations</a>
+                    <a href="donations/add_donation.php" class="submenu-link">Add Donation</a>
+                </div>
+            </div>
+
 
             <a href="reports/student_report.php"
                 class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800/50 transition-colors sidebar-link">
