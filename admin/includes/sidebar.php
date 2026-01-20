@@ -207,11 +207,62 @@
             </script>
 
 
-            <a href="attendance/attendance.php"
-                class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800/50 transition-colors sidebar-link">
-                <i class="fas fa-wallet w-5"></i>
-                <span>Attendance</span>
-            </a>
+            <!-- Attendance Sidebar Menu -->
+            <!-- Attendance Sidebar Menu -->
+            <div class="space-y-1">
+                <button onclick="toggleAttendanceMenu()"
+                    class="flex items-center justify-between w-full p-3 rounded-lg hover:bg-gray-800/50 transition-colors sidebar-link">
+                    <span class="flex items-center gap-3">
+                        <i class="fas fa-wallet w-5"></i>
+                        <span>Attendance</span>
+                    </span>
+                    <i class="fas fa-chevron-down text-sm transition-transform" id="attendanceChevron"></i>
+                </button>
+
+                <div id="attendanceMenu" class="ml-6 space-y-1 hidden">
+                    <!-- Combined Attendance Page -->
+                    <a href="attendance/attendance.php"
+                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/30 transition-colors text-sm">
+                        <i class="fas fa-list w-4"></i>
+                        <span>All Attendances</span>
+                    </a>
+
+                    <!-- Student Attendance -->
+                    <a href="attendance/take_student_attendance.php"
+                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/30 transition-colors text-sm">
+                        <i class="fas fa-user-graduate w-4"></i>
+                        <span>Take Student Attendance</span>
+                    </a>
+                    <a href="attendance/view_student_attendance.php"
+                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/30 transition-colors text-sm">
+                        <i class="fas fa-eye w-4"></i>
+                        <span>View Student Attendance</span>
+                    </a>
+
+                    <!-- Teacher Attendance -->
+                    <a href="attendance/take_teacher_attendance.php"
+                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/30 transition-colors text-sm">
+                        <i class="fas fa-chalkboard-teacher w-4"></i>
+                        <span>Take Teacher Attendance</span>
+                    </a>
+                    <a href="attendance/view_teacher_attendance.php"
+                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/30 transition-colors text-sm">
+                        <i class="fas fa-eye w-4"></i>
+                        <span>View Teacher Attendance</span>
+                    </a>
+                </div>
+            </div>
+
+            <script>
+                function toggleAttendanceMenu() {
+                    const menu = document.getElementById('attendanceMenu');
+                    const chevron = document.getElementById('attendanceChevron');
+                    menu.classList.toggle('hidden');
+                    chevron.classList.toggle('rotate-180');
+                }
+            </script>
+
+
 
 
             <a href="expenses/expenses.php"

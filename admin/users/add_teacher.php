@@ -36,14 +36,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
                 // Insert into teachers table
                 $teacher_sql = "INSERT INTO teachers 
-                                (user_id, teacher_code, name, qualification, experience_years, specialization, phone, status, created_at)
+                                (user_id, teacher_code, name, qualification, experience_years,  phone, status, created_at)
                                 VALUES (
                                     '$user_id',
                                     '$teacher_code',
                                     '$name',
                                     '$qualification',
                                     '$experience_years',
-                                    '$specialization',
+                                
                                     '$phone',
                                     'active',
                                     NOW()
