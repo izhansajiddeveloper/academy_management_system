@@ -304,6 +304,7 @@
                 }
             </script>
             <!-- Donations -->
+            <!-- Donations -->
             <div class="space-y-1">
                 <button onclick="toggleDonationsMenu()"
                     class="flex items-center justify-between w-full p-3 rounded-lg hover:bg-gray-800/50 transition-colors sidebar-link">
@@ -311,14 +312,34 @@
                         <i class="fas fa-hand-holding-heart w-5"></i>
                         <span>Donations</span>
                     </span>
-                    <i class="fas fa-chevron-down text-sm" id="donationsChevron"></i>
+                    <i class="fas fa-chevron-down text-sm transition-transform" id="donationsChevron"></i>
                 </button>
 
                 <div id="donationsMenu" class="ml-6 space-y-1 hidden">
-                    <a href="donations/donations.php" class="submenu-link">All Donations</a>
-                    <a href="donations/add_donation.php" class="submenu-link">Add Donation</a>
+                    <a href="donations/donations.php"
+                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/30 transition-colors text-sm">
+                        <i class="fas fa-list w-4"></i>
+                        <span>All Donations</span>
+                    </a>
+
+                    <a href="donations/add_donation.php"
+                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/30 transition-colors text-sm">
+                        <i class="fas fa-plus w-4"></i>
+                        <span>Add Donation</span>
+                    </a>
                 </div>
             </div>
+            <script>
+                function toggleDonationsMenu() {
+                    const menu = document.getElementById('donationsMenu');
+                    const chevron = document.getElementById('donationsChevron');
+
+                    menu.classList.toggle('hidden');
+                    chevron.classList.toggle('rotate-180');
+                }
+            </script>
+
+
 
 
             <a href="reports/student_report.php"
