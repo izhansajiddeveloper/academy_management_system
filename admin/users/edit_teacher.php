@@ -16,7 +16,6 @@ if (!$teacher) {
     die("Teacher not found!");
 }
 
-$success_message = '';
 $error_message = '';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -30,6 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $specialization = trim($_POST['specialization'] ?? '');
     $status = $_POST['status'];
 
+    // Basic validation
     if (empty($username) || empty($email) || empty($password) || empty($name)) {
         $error_message = "Please fill in all required fields.";
     } else {
@@ -42,28 +42,24 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         } else {
             // Update users table
             $user_sql = "UPDATE users 
-                        SET username='$username', email='$email', password='$password', status='$status', updated_at=NOW()
-                        WHERE id={$teacher['user_id']}";
+                         SET username='$username', email='$email', password='$password', status='$status', updated_at=NOW()
+                         WHERE id={$teacher['user_id']}";
 
             if (mysqli_query($conn, $user_sql)) {
                 // Update teachers table
-                $teacher_sql = "
-    UPDATE teachers 
-    SET 
-        name='$name',
-        qualification='$qualification',
-        experience_years='$experience_years',
-        phone='$phone',
-        status='$status',
-        updated_at=NOW()
-    WHERE id=$id
-";
+                $teacher_sql = "UPDATE teachers 
+                                SET name='$name',
+                                    qualification='$qualification',
+                                    experience_years='$experience_years',
+                                    phone='$phone',
+                                    status='$status',
+                                    updated_at=NOW()
+                                WHERE id=$id";
 
                 if (mysqli_query($conn, $teacher_sql)) {
-                    $success_message = "Teacher information updated successfully!";
-                    // Refresh teacher data
-                    $result = mysqli_query($conn, $sql);
-                    $teacher = mysqli_fetch_assoc($result);
+                    // ✅ Redirect to teachers.php after successful update
+                    header("Location: teachers.php?success=1");
+                    exit;
                 } else {
                     $error_message = "Error updating teacher information: " . mysqli_error($conn);
                 }
@@ -74,6 +70,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 ?>
+
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -498,10 +496,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             class="bg-white text-gray-700 px-6 py-3 rounded-lg font-medium border border-gray-300 hover:bg-gray-50 transition-all duration-300">
                             <i class="fas fa-times mr-2"></i> Cancel
                         </a>
-                        <button type="submit"
-                            class="btn-primary flex items-center gap-2">
-                            <i class="fas fa-save"></i> Update Teacher
-                        </button>
+                        <div class="flex gap-4">
+                            <!-- Update button -->
+                            <button type="submit" class="btn-primary flex items-center gap-2">
+                                <i class="fas fa-save"></i> Update Teacher
+                            </button>
+
+                            
+                        </div>
+
                     </div>
                 </div>
             </form>

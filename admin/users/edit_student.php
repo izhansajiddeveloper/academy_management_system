@@ -21,6 +21,7 @@ if (!$student) {
 $success_message = '';
 $error_message = '';
 
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $name = trim($_POST['name']);
     $father_name = trim($_POST['father_name']);
@@ -65,19 +66,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 ";
 
                 if (mysqli_query($conn, $user_sql)) {
-                    $success_message = "Student information updated successfully!";
-                    // Refresh student data
-                    $student_result = mysqli_query($conn, $student_query);
-                    $student = mysqli_fetch_assoc($student_result);
+                    // ✅ Redirect to students.php after successful update
+                    header("Location: students.php?success=1");
+                    exit;
                 } else {
-                    $error_message = "Error updating user information: " . mysqli_error($conn);
+                    $error_message = "Failed to update user information.";
                 }
             } else {
-                $error_message = "Error updating student information: " . mysqli_error($conn);
+                $error_message = "Failed to update student information.";
             }
         }
     }
 }
+
+ 
 ?>
 
 <!DOCTYPE html>
@@ -637,10 +639,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             class="btn-secondary flex items-center gap-2">
                             <i class="fas fa-times"></i> Cancel
                         </a>
-                        <button type="submit"
-                            class="btn-primary flex items-center gap-2">
-                            <i class="fas fa-save"></i> Update Student
-                        </button>
+                        <div class="flex gap-4">
+                            <!-- Update button (submits the form) -->
+                            <button type="submit" class="btn-primary flex items-center gap-2">
+                                <i class="fas fa-save"></i> Update Student
+                            </button>
+
+                           
+                        </div>
+
                     </div>
                 </div>
             </form>
