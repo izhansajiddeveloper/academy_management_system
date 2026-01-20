@@ -339,6 +339,40 @@
                 }
             </script>
 
+            <!-- Profit -->
+            <div class="space-y-1">
+                <button onclick="toggleProfitMenu()"
+                    class="flex items-center justify-between w-full p-3 rounded-lg hover:bg-gray-800/50 transition-colors sidebar-link">
+                    <span class="flex items-center gap-3">
+                        <i class="fas fa-chart-line w-5"></i>
+                        <span>Profit</span>
+                    </span>
+                    <i class="fas fa-chevron-down text-sm transition-transform" id="profitChevron"></i>
+                </button>
+
+                <div id="profitMenu" class="ml-6 space-y-1 hidden">
+                    <a href="profit/profit.php"
+                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/30 transition-colors text-sm">
+                        <i class="fas fa-list w-4"></i>
+                        <span>All Profits</span>
+                    </a>
+
+                    <a href="profit/add_profit.php"
+                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/30 transition-colors text-sm">
+                        <i class="fas fa-plus w-4"></i>
+                        <span>Add Profit</span>
+                    </a>
+                </div>
+            </div>
+
+            <script>
+                function toggleProfitMenu() {
+                    const menu = document.getElementById('profitMenu');
+                    const chevron = document.getElementById('profitChevron');
+                    menu.classList.toggle('hidden');
+                    chevron.classList.toggle('rotate-180');
+                }
+            </script>
 
 
 
