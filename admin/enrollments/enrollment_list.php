@@ -296,7 +296,7 @@ $today_count = mysqli_fetch_assoc($today_result)['count'];
                                         </td>
                                         <td class="py-3 px-4">
                                             <div class="flex gap-1">
-                                                <a href="enroll_student.php?edit_id=<?= $row['id'] ?>"
+                                                <a href="edit_enrollment.php?edit_id=<?= $row['id'] ?>"
                                                     class="action-btn bg-blue-50 text-blue-700 hover:bg-blue-100"
                                                     title="Edit">
                                                     <i class="fas fa-edit text-xs"></i>
