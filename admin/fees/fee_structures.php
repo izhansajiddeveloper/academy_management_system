@@ -229,11 +229,11 @@ $fee_structures = mysqli_query($conn, "
                 </div>
                 <div class="bg-white p-3 rounded border text-center">
                     <p class="text-xs text-gray-500 mb-1">Average Fee</p>
-                    <h3 class="text-xl font-bold text-gray-800">₹<?php echo $avg_fee_formatted; ?></h3>
+                    <h3 class="text-xl font-bold text-gray-800">Rs<?php echo $avg_fee_formatted; ?></h3>
                 </div>
                 <div class="bg-white p-3 rounded border text-center">
                     <p class="text-xs text-gray-500 mb-1">Total Revenue Potential</p>
-                    <h3 class="text-xl font-bold text-gray-800">₹<?php echo $total_revenue_formatted; ?></h3>
+                    <h3 class="text-xl font-bold text-gray-800">Rs<?php echo $total_revenue_formatted; ?></h3>
                 </div>
             </div>
 
@@ -288,7 +288,7 @@ $fee_structures = mysqli_query($conn, "
                                         </td>
                                         <td class="py-3 px-4">
                                             <span class="text-lg font-bold text-green-600">
-                                                ₹<?= number_format($row['total_fee'], 2) ?>
+                                                Rs<?= number_format($row['total_fee'], 2) ?>
                                             </span>
                                         </td>
                                         <td class="py-3 px-4">

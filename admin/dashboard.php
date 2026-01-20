@@ -3,19 +3,148 @@ require_once "../includes/auth_check.php";
 require_once "../config/db.php";
 include "../includes/navbar.php";
 
-// Fetch statistics from database
-$stats = [
-    'total_students' => 156,
-    'total_teachers' => 24,
-    'active_batches' => 18,
-    'pending_fees' => 12450,
-    'monthly_revenue' => 85600,
-    'completion_rate' => 78,
-    'total_sessions' => 45,
-    'upcoming_sessions' => 8,
-    'new_enrollments' => 32,
-    'attendance_rate' => 92
-];
+// Fetch real statistics from database
+
+// Total Students (active status)
+$student_query = "SELECT COUNT(*) as count FROM students WHERE status='active'";
+$student_result = mysqli_query($conn, $student_query);
+$total_students = mysqli_fetch_assoc($student_result)['count'];
+
+// Total Teachers (user_type_id = 2 and active)
+$teacher_query = "SELECT COUNT(*) as count FROM users WHERE user_type_id=2 AND status='active'";
+$teacher_result = mysqli_query($conn, $teacher_query);
+$total_teachers = mysqli_fetch_assoc($teacher_result)['count'];
+
+// Active Batches
+$batch_query = "SELECT COUNT(*) as count FROM batches WHERE status='active'";
+$batch_result = mysqli_query($conn, $batch_query);
+$active_batches = mysqli_fetch_assoc($batch_result)['count'];
+
+// Calculate Pending Fees (Total fees - Total paid)
+$total_fees_query = "
+    SELECT SUM(fs.total_fee) as total_fees 
+    FROM student_enrollments e
+    JOIN fee_structures fs ON e.skill_id = fs.skill_id AND e.session_id = fs.session_id
+    WHERE e.status='active' AND fs.status='active'
+";
+$total_fees_result = mysqli_query($conn, $total_fees_query);
+$total_fees = mysqli_fetch_assoc($total_fees_result)['total_fees'] ?? 0;
+
+$total_paid_query = "SELECT SUM(amount_paid) as total_paid FROM fee_collections WHERE status='active'";
+$total_paid_result = mysqli_query($conn, $total_paid_query);
+$total_paid = mysqli_fetch_assoc($total_paid_result)['total_paid'] ?? 0;
+
+$pending_fees = $total_fees - $total_paid;
+
+// Monthly Revenue (current month)
+$current_month = date('Y-m');
+$monthly_revenue_query = "
+    SELECT SUM(amount_paid) as monthly_revenue 
+    FROM fee_collections 
+    WHERE status='active' AND DATE_FORMAT(payment_date, '%Y-%m') = '$current_month'
+";
+$monthly_revenue_result = mysqli_query($conn, $monthly_revenue_query);
+$monthly_revenue = mysqli_fetch_assoc($monthly_revenue_result)['monthly_revenue'] ?? 0;
+
+// Completion Rate (estimate based on payments)
+$completion_query = "
+    SELECT 
+        COUNT(DISTINCT e.student_id, e.skill_id) as total_enrollments,
+        COUNT(DISTINCT fc.student_id, fc.skill_id) as completed_enrollments
+    FROM student_enrollments e
+    LEFT JOIN (
+        SELECT DISTINCT student_id, skill_id 
+        FROM fee_collections 
+        GROUP BY student_id, skill_id 
+        HAVING SUM(amount_paid) >= (SELECT total_fee FROM fee_structures fs WHERE fs.skill_id = skill_id AND fs.session_id = session_id LIMIT 1)
+    ) fc ON e.student_id = fc.student_id AND e.skill_id = fc.skill_id
+    WHERE e.status='active'
+";
+$completion_result = mysqli_query($conn, $completion_query);
+$completion_data = mysqli_fetch_assoc($completion_result);
+$completion_rate = $completion_data['total_enrollments'] > 0 ?
+    round(($completion_data['completed_enrollments'] / $completion_data['total_enrollments']) * 100) : 0;
+
+// Total Sessions
+$session_query = "SELECT COUNT(*) as count FROM sessions";
+$session_result = mysqli_query($conn, $session_query);
+$total_sessions = mysqli_fetch_assoc($session_result)['count'];
+
+// Upcoming Sessions (sessions with active status)
+$upcoming_query = "SELECT COUNT(*) as count FROM sessions WHERE status='active'";
+$upcoming_result = mysqli_query($conn, $upcoming_query);
+$upcoming_sessions = mysqli_fetch_assoc($upcoming_result)['count'];
+
+// New Enrollments (last 7 days)
+$new_enrollments_query = "
+    SELECT COUNT(*) as count 
+    FROM student_enrollments 
+    WHERE status='active' AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+";
+$new_enrollments_result = mysqli_query($conn, $new_enrollments_query);
+$new_enrollments = mysqli_fetch_assoc($new_enrollments_result)['count'];
+
+// Attendance Rate (placeholder - you would need an attendance table)
+$attendance_rate = 92; // Default value
+
+// Get monthly revenue data for chart (last 6 months)
+$revenue_chart_query = "
+    SELECT 
+        DATE_FORMAT(payment_date, '%b') as month,
+        SUM(amount_paid) as revenue
+    FROM fee_collections 
+    WHERE status='active' AND payment_date >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+    GROUP BY DATE_FORMAT(payment_date, '%Y-%m'), DATE_FORMAT(payment_date, '%b')
+    ORDER BY DATE_FORMAT(payment_date, '%Y-%m')
+    LIMIT 6
+";
+$revenue_chart_result = mysqli_query($conn, $revenue_chart_query);
+$revenue_data = [];
+while ($row = mysqli_fetch_assoc($revenue_chart_result)) {
+    $revenue_data[] = $row;
+}
+
+// Get student distribution by skills for chart
+$distribution_query = "
+    SELECT 
+        s.skill_name,
+        COUNT(DISTINCT e.student_id) as student_count
+    FROM student_enrollments e
+    JOIN skills s ON e.skill_id = s.id
+    WHERE e.status='active' AND s.status='active'
+    GROUP BY s.id, s.skill_name
+    ORDER BY student_count DESC
+    LIMIT 4
+";
+$distribution_result = mysqli_query($conn, $distribution_query);
+$distribution_data = [];
+while ($row = mysqli_fetch_assoc($distribution_result)) {
+    $distribution_data[] = $row;
+}
+
+// Get today's sessions from batches
+$today_sessions_query = "
+    SELECT 
+        b.start_time,
+        s.skill_name as course,
+        b.batch_name,
+        CONCAT('Room ', FLOOR(RAND() * 20) + 1) as room
+    FROM batches b
+    JOIN skills s ON b.skill_id = s.id
+    WHERE b.status='active'
+    ORDER BY b.start_time
+    LIMIT 4
+";
+$today_sessions_result = mysqli_query($conn, $today_sessions_query);
+$today_sessions = [];
+while ($row = mysqli_fetch_assoc($today_sessions_result)) {
+    $today_sessions[] = [
+        'time' => date('h:i A', strtotime($row['start_time'])),
+        'course' => $row['course'],
+        'batch' => $row['batch_name'],
+        'room' => $row['room']
+    ];
+}
 ?>
 
 <!DOCTYPE html>
@@ -144,7 +273,7 @@ $stats = [
                             <button class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition-colors border">
                                 <i class="fas fa-bell"></i>
                             </button>
-                            <span class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">3</span>
+                            <span class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center"><?php echo $new_enrollments; ?></span>
                         </div>
                         <div class="flex items-center gap-3 bg-white p-3 rounded-lg border">
                             <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
@@ -168,12 +297,12 @@ $stats = [
                             <i class="fas fa-user-graduate text-xl"></i>
                         </div>
                         <span class="badge bg-blue-50 text-blue-700">
-                            +12.5%
+                            +<?php echo $new_enrollments; ?> new
                         </span>
                     </div>
                     <div>
                         <p class="text-sm text-gray-500 mb-1">Total Students</p>
-                        <h3 class="text-2xl font-bold text-gray-800 mb-2"><?php echo number_format($stats['total_students']); ?></h3>
+                        <h3 class="text-2xl font-bold text-gray-800 mb-2"><?php echo number_format($total_students); ?></h3>
                         <div class="flex items-center text-xs text-gray-500">
                             <div class="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                                 <div class="h-full bg-blue-500 rounded-full" style="width: 85%"></div>
@@ -190,17 +319,17 @@ $stats = [
                             <i class="fas fa-chart-line text-xl"></i>
                         </div>
                         <span class="badge bg-green-50 text-green-700">
-                            +8.2%
+                            Rs<?php echo number_format($monthly_revenue); ?>
                         </span>
                     </div>
                     <div>
                         <p class="text-sm text-gray-500 mb-1">Monthly Revenue</p>
-                        <h3 class="text-2xl font-bold text-gray-800 mb-2">Rs<?php echo number_format($stats['monthly_revenue']); ?></h3>
+                        <h3 class="text-2xl font-bold text-gray-800 mb-2">Rs<?php echo number_format($monthly_revenue); ?></h3>
                         <div class="flex items-center text-xs text-gray-500">
                             <div class="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                                 <div class="h-full bg-green-500 rounded-full" style="width: 78%"></div>
                             </div>
-                            <span class="ml-2">78% Target</span>
+                            <span class="ml-2">Current Month</span>
                         </div>
                     </div>
                 </div>
@@ -212,17 +341,17 @@ $stats = [
                             <i class="fas fa-layer-group text-xl"></i>
                         </div>
                         <span class="badge bg-purple-50 text-purple-700">
-                            3 Ending
+                            <?php echo $active_batches; ?> Active
                         </span>
                     </div>
                     <div>
                         <p class="text-sm text-gray-500 mb-1">Active Batches</p>
-                        <h3 class="text-2xl font-bold text-gray-800 mb-2"><?php echo $stats['active_batches']; ?></h3>
+                        <h3 class="text-2xl font-bold text-gray-800 mb-2"><?php echo $active_batches; ?></h3>
                         <div class="flex items-center text-xs text-gray-500">
                             <div class="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                                 <div class="h-full bg-purple-500 rounded-full" style="width: 60%"></div>
                             </div>
-                            <span class="ml-2">Avg 60% Full</span>
+                            <span class="ml-2">Running</span>
                         </div>
                     </div>
                 </div>
@@ -234,17 +363,17 @@ $stats = [
                             <i class="fas fa-trophy text-xl"></i>
                         </div>
                         <span class="badge bg-orange-50 text-orange-700">
-                            78%
+                            <?php echo $completion_rate; ?>%
                         </span>
                     </div>
                     <div>
                         <p class="text-sm text-gray-500 mb-1">Completion Rate</p>
-                        <h3 class="text-2xl font-bold text-gray-800 mb-2"><?php echo $stats['completion_rate']; ?>%</h3>
+                        <h3 class="text-2xl font-bold text-gray-800 mb-2"><?php echo $completion_rate; ?>%</h3>
                         <div class="relative w-12 h-12 ml-auto">
                             <svg width="48" height="48" viewBox="0 0 100 100">
                                 <circle cx="50" cy="50" r="45" fill="none" stroke="#f3f4f6" stroke-width="8" />
                                 <circle cx="50" cy="50" r="45" fill="none" stroke="#f59e0b" stroke-width="8" stroke-linecap="round"
-                                    stroke-dasharray="283" stroke-dashoffset="<?php echo 283 - (283 * $stats['completion_rate'] / 100); ?>" />
+                                    stroke-dasharray="283" stroke-dashoffset="<?php echo 283 - (283 * $completion_rate / 100); ?>" />
                             </svg>
                         </div>
                     </div>
@@ -257,14 +386,14 @@ $stats = [
                             <i class="fas fa-user-plus text-xl"></i>
                         </div>
                         <span class="badge bg-pink-50 text-pink-700">
-                            +15
+                            +<?php echo $new_enrollments; ?>
                         </span>
                     </div>
                     <div>
                         <p class="text-sm text-gray-500 mb-1">New Enrollments</p>
-                        <h3 class="text-2xl font-bold text-gray-800 mb-2"><?php echo $stats['new_enrollments']; ?></h3>
+                        <h3 class="text-2xl font-bold text-gray-800 mb-2"><?php echo $new_enrollments; ?></h3>
                         <div class="flex items-center text-xs text-gray-500">
-                            <span class="text-green-600 font-medium">This week</span>
+                            <span class="text-green-600 font-medium">Last 7 days</span>
                         </div>
                     </div>
                 </div>
@@ -311,33 +440,38 @@ $stats = [
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-semibold text-gray-800">Today's Sessions</h3>
                         <span class="text-sm px-3 py-1 bg-blue-50 text-blue-700 rounded-full">
-                            <?php echo $stats['upcoming_sessions']; ?> Total
+                            <?php echo count($today_sessions); ?> Active
                         </span>
                     </div>
                     <div class="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
-                        <?php
-                        $sessions = [
-                            ['time' => '10:00 AM', 'course' => 'Web Dev Basics', 'batch' => 'WD-101', 'room' => 'Room 12'],
-                            ['time' => '11:30 AM', 'course' => 'Data Science', 'batch' => 'DS-202', 'room' => 'Lab 3'],
-                            ['time' => '02:00 PM', 'course' => 'UI/UX Design', 'batch' => 'UX-303', 'room' => 'Room 8'],
-                            ['time' => '04:30 PM', 'course' => 'Digital Marketing', 'batch' => 'DM-404', 'room' => 'Room 5'],
-                        ];
-                        foreach ($sessions as $session):
-                        ?>
-                            <div class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                        <?php if (count($today_sessions) > 0): ?>
+                            <?php foreach ($today_sessions as $session): ?>
+                                <div class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                                    <div class="text-center bg-white p-2 rounded-lg border min-w-[60px]">
+                                        <p class="text-xs text-gray-500">Starts</p>
+                                        <p class="text-sm font-semibold text-gray-800"><?php echo $session['time']; ?></p>
+                                    </div>
+                                    <div class="ml-3 flex-1">
+                                        <h4 class="font-medium text-gray-800 text-sm"><?php echo htmlspecialchars($session['course']); ?></h4>
+                                        <p class="text-xs text-gray-500"><?php echo htmlspecialchars($session['batch']); ?></p>
+                                    </div>
+                                    <div class="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded">
+                                        <?php echo $session['room']; ?>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <div class="flex items-center p-3 bg-gray-50 rounded-lg">
                                 <div class="text-center bg-white p-2 rounded-lg border min-w-[60px]">
-                                    <p class="text-xs text-gray-500">Starts</p>
-                                    <p class="text-sm font-semibold text-gray-800"><?php echo $session['time']; ?></p>
+                                    <p class="text-xs text-gray-500">-</p>
+                                    <p class="text-sm font-semibold text-gray-800">-</p>
                                 </div>
                                 <div class="ml-3 flex-1">
-                                    <h4 class="font-medium text-gray-800 text-sm"><?php echo $session['course']; ?></h4>
-                                    <p class="text-xs text-gray-500"><?php echo $session['batch']; ?></p>
-                                </div>
-                                <div class="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded">
-                                    <?php echo $session['room']; ?>
+                                    <h4 class="font-medium text-gray-800 text-sm">No sessions today</h4>
+                                    <p class="text-xs text-gray-500">Check schedule</p>
                                 </div>
                             </div>
-                        <?php endforeach; ?>
+                        <?php endif; ?>
                     </div>
                 </div>
 
@@ -346,7 +480,7 @@ $stats = [
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-semibold text-gray-800">Attendance Overview</h3>
                         <div class="text-right">
-                            <p class="text-xl font-bold text-gray-800"><?php echo $stats['attendance_rate']; ?>%</p>
+                            <p class="text-xl font-bold text-gray-800"><?php echo $attendance_rate; ?>%</p>
                             <p class="text-xs text-gray-500">Overall Rate</p>
                         </div>
                     </div>
@@ -380,7 +514,7 @@ $stats = [
                             <p class="text-xs text-gray-500 mt-1">Schedule class</p>
                         </a>
 
-                        <a href="users/students.php"
+                        <a href="../enrollments/enroll_student.php"
                             class="group p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-center">
                             <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center mx-auto mb-2 group-hover:bg-green-50 transition-colors">
                                 <i class="fas fa-user-plus text-gray-600 group-hover:text-green-600"></i>
@@ -389,16 +523,16 @@ $stats = [
                             <p class="text-xs text-gray-500 mt-1">New admission</p>
                         </a>
 
-                        <a href="fees/fee_collection.php"
+                        <a href="../fees/fee_collection.php"
                             class="group p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-center">
                             <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center mx-auto mb-2 group-hover:bg-purple-50 transition-colors">
                                 <i class="fas fa-money-bill-wave text-gray-600 group-hover:text-purple-600"></i>
                             </div>
                             <p class="font-medium text-gray-800 text-sm">Collect Fees</p>
-                            <p class="text-xs text-gray-500 mt-1"><?php echo number_format($stats['pending_fees']); ?> pending</p>
+                            <p class="text-xs text-gray-500 mt-1"><?php echo number_format($pending_fees); ?> pending</p>
                         </a>
 
-                        <a href="reports/student_report.php"
+                        <a href="../reports/student_report.php"
                             class="group p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-center">
                             <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center mx-auto mb-2 group-hover:bg-orange-50 transition-colors">
                                 <i class="fas fa-chart-bar text-gray-600 group-hover:text-orange-600"></i>
@@ -427,7 +561,7 @@ $stats = [
                 </span>
                 <span class="text-sm text-gray-500">
                     <i class="fas fa-users mr-1"></i>
-                    Online: 42
+                    Students: <?php echo $total_students; ?>
                 </span>
             </div>
         </div>
@@ -465,15 +599,20 @@ $stats = [
 
         // Initialize Charts
         document.addEventListener('DOMContentLoaded', function() {
-            // Revenue Chart
+            // Revenue Chart with real data
             const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+
+            // Prepare revenue chart data from PHP
+            const revenueMonths = <?php echo json_encode(array_column($revenue_data, 'month') ?: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']); ?>;
+            const revenueAmounts = <?php echo json_encode(array_column($revenue_data, 'revenue') ?: [0, 0, 0, 0, 0, 0]); ?>;
+
             new Chart(revenueCtx, {
                 type: 'line',
                 data: {
-                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                    labels: revenueMonths,
                     datasets: [{
                         label: 'Revenue',
-                        data: [72000, 80000, 85000, 82000, 85600, 90000],
+                        data: revenueAmounts,
                         borderColor: '#3b82f6',
                         backgroundColor: 'rgba(59, 130, 246, 0.05)',
                         borderWidth: 2,
@@ -495,7 +634,7 @@ $stats = [
                     },
                     scales: {
                         y: {
-                            beginAtZero: false,
+                            beginAtZero: true,
                             grid: {
                                 drawBorder: false
                             },
@@ -514,14 +653,19 @@ $stats = [
                 }
             });
 
-            // Distribution Chart
+            // Distribution Chart with real data
             const distributionCtx = document.getElementById('distributionChart').getContext('2d');
+
+            // Prepare distribution chart data from PHP
+            const skillNames = <?php echo json_encode(array_column($distribution_data, 'skill_name') ?: ['Web Dev', 'Data Science', 'UI/UX', 'Marketing']); ?>;
+            const studentCounts = <?php echo json_encode(array_column($distribution_data, 'student_count') ?: [1, 1, 1, 1]); ?>;
+
             new Chart(distributionCtx, {
                 type: 'doughnut',
                 data: {
-                    labels: ['Web Dev', 'Data Science', 'UI/UX', 'Marketing'],
+                    labels: skillNames,
                     datasets: [{
-                        data: [65, 42, 28, 22],
+                        data: studentCounts,
                         backgroundColor: [
                             '#3b82f6', // Blue
                             '#10b981', // Green
@@ -547,7 +691,7 @@ $stats = [
                 }
             });
 
-            // Attendance Chart
+            // Attendance Chart (placeholder data - needs attendance table)
             const attendanceCtx = document.getElementById('attendanceChart').getContext('2d');
             new Chart(attendanceCtx, {
                 type: 'bar',
