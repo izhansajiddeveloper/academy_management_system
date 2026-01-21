@@ -376,11 +376,78 @@
 
 
 
-            <a href="reports/student_report.php"
-                class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800/50 transition-colors sidebar-link">
-                <i class="fas fa-file-alt w-5"></i>
-                <span>Reports</span>
-            </a>
+            <!-- Reports -->
+            <div class="space-y-1">
+                <button onclick="toggleReportsMenu()"
+                    class="flex items-center justify-between w-full p-3 rounded-lg hover:bg-gray-800/50 transition-colors sidebar-link">
+                    <span class="flex items-center gap-3">
+                        <i class="fas fa-file-alt w-5"></i>
+                        <span>Reports</span>
+                    </span>
+                    <i class="fas fa-chevron-down text-sm transition-transform" id="reportsChevron"></i>
+                </button>
+
+                <div id="reportsMenu" class="ml-6 space-y-1 hidden">
+                    <a href="reports/student_report.php"
+                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/30 transition-colors text-sm">
+                        <i class="fas fa-user-graduate w-4"></i>
+                        <span>Student Report</span>
+                    </a>
+
+                    <a href="reports/attendance_report.php"
+                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/30 transition-colors text-sm">
+                        <i class="fas fa-calendar-check w-4"></i>
+                        <span>Attendance Report</span>
+                    </a>
+
+                    <a href="reports/fee_report.php"
+                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/30 transition-colors text-sm">
+                        <i class="fas fa-money-bill-wave w-4"></i>
+                        <span>Fee Report</span>
+                    </a>
+
+                    <a href="reports/expense_report.php"
+                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/30 transition-colors text-sm">
+                        <i class="fas fa-receipt w-4"></i>
+                        <span>Expense Report</span>
+                    </a>
+
+                    <a href="reports/donation_report.php"
+                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/30 transition-colors text-sm">
+                        <i class="fas fa-hand-holding-heart w-4"></i>
+                        <span>Donation Report</span>
+                    </a>
+
+                    <a href="reports/profit_report.php"
+                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/30 transition-colors text-sm">
+                        <i class="fas fa-chart-line w-4"></i>
+                        <span>Profit Report</span>
+                    </a>
+
+                    <a href="reports/teacher_report.php"
+                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/30 transition-colors text-sm">
+                        <i class="fas fa-chalkboard-teacher w-4"></i>
+                        <span>Teacher Report</span>
+                    </a>
+
+                    <a href="reports/batch_report.php"
+                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/30 transition-colors text-sm">
+                        <i class="fas fa-layer-group w-4"></i>
+                        <span>Batch Report</span>
+                    </a>
+                </div>
+            </div>
+            <script>
+                function toggleReportsMenu() {
+                    const menu = document.getElementById('reportsMenu');
+                    const chevron = document.getElementById('reportsChevron');
+
+                    menu.classList.toggle('hidden');
+                    chevron.classList.toggle('rotate-180');
+                }
+            </script>
+
+
         </nav>
 
         <!-- Quick Actions -->
