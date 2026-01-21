@@ -5,14 +5,31 @@ require_once __DIR__ . '/../../includes/functions.php';
 $success_message = '';
 $error_message = '';
 
+// Get current year
+$current_year = date('Y');
+
 // Fetch all active skills
 $skills = mysqli_query($conn, "SELECT id, skill_name FROM skills WHERE status='active' ORDER BY skill_name");
 
-// Fetch all active sessions
-$sessions = mysqli_query($conn, "SELECT id, session_name FROM sessions WHERE status='active' ORDER BY id DESC");
+// Fetch current year session (2026)
+$current_session_result = mysqli_query($conn, "SELECT id, session_name FROM sessions WHERE session_name LIKE '%$current_year%' AND status='active' LIMIT 1");
+$current_session = mysqli_fetch_assoc($current_session_result);
+$current_session_id = $current_session ? $current_session['id'] : 0;
 
 // Fetch all active batches
-$batches = mysqli_query($conn, "SELECT id, batch_name FROM batches WHERE status='active' ORDER BY batch_name");
+$batches_query = "SELECT id, batch_name, skill_id FROM batches WHERE status='active' ORDER BY skill_id, batch_name";
+$all_batches_result = mysqli_query($conn, $batches_query);
+
+// Store all batches for JavaScript
+$all_batches = [];
+while ($batch = mysqli_fetch_assoc($all_batches_result)) {
+    $all_batches[] = $batch;
+}
+
+// Get Web Development skill ID
+$web_dev_result = mysqli_query($conn, "SELECT id FROM skills WHERE skill_name = 'Web Development' AND status='active' LIMIT 1");
+$web_dev = mysqli_fetch_assoc($web_dev_result);
+$web_dev_id = $web_dev ? $web_dev['id'] : 0;
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $username = trim($_POST['username']);
@@ -25,10 +42,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $phone    = trim($_POST['phone']);
     $address  = trim($_POST['address']);
 
-    // Enrollment details
-    $skill_id = isset($_POST['skill_id']) ? intval($_POST['skill_id']) : 0;
-    $session_id = isset($_POST['session_id']) ? intval($_POST['session_id']) : 0;
-    $batch_id = isset($_POST['batch_id']) ? intval($_POST['batch_id']) : 0;
+    // Enrollment details - First Skill
+    $skill_id_1 = isset($_POST['skill_id_1']) ? intval($_POST['skill_id_1']) : 0;
+    $batch_id_1 = isset($_POST['batch_id_1']) ? intval($_POST['batch_id_1']) : 0;
+    
+    // Enrollment details - Second Skill (Optional)
+    $skill_id_2 = isset($_POST['skill_id_2']) ? intval($_POST['skill_id_2']) : 0;
+    $batch_id_2 = isset($_POST['batch_id_2']) ? intval($_POST['batch_id_2']) : 0;
+    
+    $session_id = $current_session_id; // Always use current session
     $admission_date = isset($_POST['admission_date']) ? $_POST['admission_date'] : date('Y-m-d');
 
     // Basic validation
@@ -68,32 +90,55 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
                 if (mysqli_query($conn, $student_sql)) {
                     $student_id = mysqli_insert_id($conn);
+                    $enrollment_count = 0;
 
-                    // If enrollment details are provided, create enrollment
-                    if ($skill_id > 0 && $session_id > 0 && $batch_id > 0) {
-                        $enrollment_sql = "INSERT INTO student_enrollments 
+                    // If first enrollment details are provided, create enrollment
+                    if ($skill_id_1 > 0 && $session_id > 0 && $batch_id_1 > 0) {
+                        $enrollment_sql_1 = "INSERT INTO student_enrollments 
                                             (student_id, skill_id, session_id, batch_id, admission_date, status, created_at)
                                             VALUES (
                                                 '$student_id',
-                                                '$skill_id',
+                                                '$skill_id_1',
                                                 '$session_id',
-                                                '$batch_id',
+                                                '$batch_id_1',
                                                 '$admission_date',
                                                 'active',
                                                 NOW()
                                             )";
 
-                        if (mysqli_query($conn, $enrollment_sql)) {
-                            $success_message = "Student added and enrolled successfully! Student Code: $student_code";
-                        } else {
-                            $success_message = "Student added but enrollment failed! Student Code: $student_code";
+                        if (mysqli_query($conn, $enrollment_sql_1)) {
+                            $enrollment_count++;
                         }
+                    }
+
+                    // If second enrollment details are provided, create enrollment
+                    if ($skill_id_2 > 0 && $session_id > 0 && $batch_id_2 > 0) {
+                        $enrollment_sql_2 = "INSERT INTO student_enrollments 
+                                            (student_id, skill_id, session_id, batch_id, admission_date, status, created_at)
+                                            VALUES (
+                                                '$student_id',
+                                                '$skill_id_2',
+                                                '$session_id',
+                                                '$batch_id_2',
+                                                '$admission_date',
+                                                'active',
+                                                NOW()
+                                            )";
+
+                        if (mysqli_query($conn, $enrollment_sql_2)) {
+                            $enrollment_count++;
+                        }
+                    }
+
+                    if ($enrollment_count > 0) {
+                        $success_message = "Student added and enrolled in $enrollment_count skill(s)! Student Code: $student_code";
                     } else {
                         $success_message = "Student added successfully! Student Code: $student_code";
                     }
 
-                    // Clear form if needed
-                    $_POST = array();
+                    // Redirect to students.php after successful save
+                    header("Location: students.php?success=" . urlencode("Student added successfully! Student Code: $student_code"));
+                    exit();
                 } else {
                     $error_message = "Error adding student details: " . mysqli_error($conn);
                 }
@@ -116,32 +161,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <style>
         * {
             font-family: 'Inter', sans-serif;
-        }
-
-        .sidebar {
-            background: #111827;
-            color: white;
-        }
-
-        .sidebar-link {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 16px;
-            border-radius: 6px;
-            transition: all 0.2s ease;
-            color: #d1d5db;
-            text-decoration: none;
-        }
-
-        .sidebar-link:hover {
-            background: #374151;
-            color: white;
-        }
-
-        .sidebar-link.active {
-            background: #3b82f6;
-            color: white;
         }
 
         .form-container {
@@ -204,6 +223,52 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             content: " *";
             color: #ef4444;
         }
+        
+        .current-session {
+            background-color: #f0f9ff;
+            border: 1px solid #bae6fd;
+            padding: 12px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .border-red-300 {
+            border-color: #fca5a5;
+        }
+        
+        .enrollment-section {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .enrollment-section-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e40af;
+            margin-bottom: 16px;
+        }
+        
+        .optional-tag {
+            background-color: #dbeafe;
+            color: #1e40af;
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            margin-left: 8px;
+        }
+        
+        .disabled-option {
+            color: #9ca3af;
+            background-color: #f3f4f6;
+        }
     </style>
 </head>
 
@@ -212,80 +277,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <?php include __DIR__ . '/../../includes/navbar.php'; ?>
 
     <div class="flex">
-        <!-- SIDEBAR -->
-        <aside class="w-64 sidebar h-screen sticky top-0">
-            <div class="p-4 border-b border-gray-700">
-                <h2 class="text-xl font-bold text-white">🎓 EduSkill Pro</h2>
-                <p class="text-xs text-gray-300 mt-1">Admin Panel</p>
-            </div>
-
-            <nav class="p-3 space-y-1">
-                <a href="../dashboard.php" class="sidebar-link">
-                    <i class="fas fa-chart-line"></i> Dashboard
-                </a>
-
-                <div class="mt-4">
-                    <p class="text-xs text-gray-400 px-3 mb-2 uppercase tracking-wider">Student Management</p>
-                    <a href="../enrollments/enrollment_list.php" class="sidebar-link">
-                        <i class="fas fa-user-check"></i> Enrollments
-                    </a>
-                    <a href="students.php" class="sidebar-link active">
-                        <i class="fas fa-user-graduate"></i> Students
-                    </a>
-                </div>
-
-                <div class="mt-4">
-                    <p class="text-xs text-gray-400 px-3 mb-2 uppercase tracking-wider">Skills & Courses</p>
-                    <a href="../skills/skills.php" class="sidebar-link">
-                        <i class="fas fa-book-open"></i> Skills
-                    </a>
-                    <a href="../sessions/sessions.php" class="sidebar-link">
-                        <i class="fas fa-calendar-alt"></i> Sessions
-                    </a>
-                    <a href="../batches/batches.php" class="sidebar-link">
-                        <i class="fas fa-layer-group"></i> Batches
-                    </a>
-                </div>
-
-                <div class="mt-4">
-                    <p class="text-xs text-gray-400 px-3 mb-2 uppercase tracking-wider">Financial</p>
-                    <a href="../fees/fee_structures.php" class="sidebar-link">
-                        <i class="fas fa-calculator"></i> Fee Structures
-                    </a>
-                    <a href="../fees/fee_collection.php" class="sidebar-link">
-                        <i class="fas fa-cash-register"></i> Fee Collection
-                    </a>
-                    <a href="../fees/fee_history.php" class="sidebar-link">
-                        <i class="fas fa-history"></i> Fee History
-                    </a>
-                </div>
-
-                <div class="mt-4">
-                    <p class="text-xs text-gray-400 px-3 mb-2 uppercase tracking-wider">Operations</p>
-                    <a href="../expenses/expenses.php" class="sidebar-link">
-                        <i class="fas fa-wallet"></i> Expenses
-                    </a>
-                    <a href="../reports/student_report.php" class="sidebar-link">
-                        <i class="fas fa-file-alt"></i> Reports
-                    </a>
-                </div>
-            </nav>
-        </aside>
+        <!-- SIDEBAR - INCLUDED FROM EXTERNAL FILE -->
+         <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
         <!-- MAIN CONTENT -->
-        <main class="flex-1 p-4">
+        <main class="flex-1 p-6">
             <!-- Header -->
             <div class="flex justify-between items-center mb-6">
                 <div>
                     <h1 class="text-2xl font-bold text-gray-800">Add New Student</h1>
                     <p class="text-gray-500 text-sm mt-1">
                         <i class="fas fa-user-plus text-blue-500 mr-1"></i>
-                        Register a new student and optionally enroll in a course
+                        Register a new student and optionally enroll in courses
                     </p>
                 </div>
                 <div>
                     <a href="students.php"
-                        class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded text-sm font-medium">
+                        class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors">
                         <i class="fas fa-arrow-left mr-1"></i> Back to Students
                     </a>
                 </div>
@@ -427,53 +435,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         </div>
                     </div>
 
-                    <!-- Enrollment Details Section -->
+                    <!-- Session - Auto-selected -->
                     <div class="mb-8">
-                        <h3 class="section-title">Enrollment Details </h3>
+                        <h3 class="section-title">Session Information</h3>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <!-- Skill -->
                             <div>
-                                <label class="form-label">Select Skill</label>
-                                <select name="skill_id" class="form-select">
-                                    <option value="">Select Skill/Course</option>
-                                    <?php
-                                    mysqli_data_seek($skills, 0); // Reset pointer
-                                    while ($sk = mysqli_fetch_assoc($skills)) { ?>
-                                        <option value="<?= $sk['id'] ?>" <?php echo (isset($_POST['skill_id']) && $_POST['skill_id'] == $sk['id']) ? 'selected' : ''; ?>>
-                                            <?= htmlspecialchars($sk['skill_name']) ?>
-                                        </option>
-                                    <?php } ?>
-                                </select>
-                            </div>
-
-                            <!-- Session -->
-                            <div>
-                                <label class="form-label">Select Session</label>
-                                <select name="session_id" class="form-select">
-                                    <option value="">Select Session</option>
-                                    <?php
-                                    mysqli_data_seek($sessions, 0); // Reset pointer
-                                    while ($se = mysqli_fetch_assoc($sessions)) { ?>
-                                        <option value="<?= $se['id'] ?>" <?php echo (isset($_POST['session_id']) && $_POST['session_id'] == $se['id']) ? 'selected' : ''; ?>>
-                                            <?= htmlspecialchars($se['session_name']) ?>
-                                        </option>
-                                    <?php } ?>
-                                </select>
-                            </div>
-
-                            <!-- Batch -->
-                            <div>
-                                <label class="form-label">Select Batch</label>
-                                <select name="batch_id" class="form-select">
-                                    <option value="">Select Batch</option>
-                                    <?php
-                                    mysqli_data_seek($batches, 0); // Reset pointer
-                                    while ($b = mysqli_fetch_assoc($batches)) { ?>
-                                        <option value="<?= $b['id'] ?>" <?php echo (isset($_POST['batch_id']) && $_POST['batch_id'] == $b['id']) ? 'selected' : ''; ?>>
-                                            <?= htmlspecialchars($b['batch_name']) ?>
-                                        </option>
-                                    <?php } ?>
-                                </select>
+                                <label class="form-label">Session</label>
+                                <div class="current-session">
+                                    <i class="fas fa-calendar-check text-blue-500"></i>
+                                    <div>
+                                        <div class="font-medium"><?= $current_session ? htmlspecialchars($current_session['session_name']) : "$current_year Session" ?></div>
+                                        <div class="text-sm text-gray-600">Auto-selected (Current Session)</div>
+                                    </div>
+                                </div>
+                                <input type="hidden" name="session_id" value="<?= $current_session_id ?>">
                             </div>
 
                             <!-- Admission Date -->
@@ -485,19 +460,92 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                     class="form-input">
                             </div>
                         </div>
+                    </div>
 
-                        <!-- Enrollment Info Note -->
-                        <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                            <div class="flex items-start">
-                                <div class="flex-shrink-0">
-                                    <i class="fas fa-info-circle text-blue-400 mt-0.5"></i>
-                                </div>
-                                <div class="ml-3">
-                                    <p class="text-sm text-blue-700">
-                                        <strong>Note:</strong> Enrollment is optional. You can add the student now and enroll them in a course later.
-                                        If you provide enrollment details, the student will be automatically enrolled.
-                                    </p>
-                                </div>
+                    <!-- First Enrollment Section -->
+                    <div class="enrollment-section">
+                        <div class="enrollment-section-title">
+                            <i class="fas fa-book text-blue-500"></i>
+                            <span>First Enrollment</span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- First Skill -->
+                            <div>
+                                <label class="form-label">Select Skill</label>
+                                <select name="skill_id_1" id="skillSelect1" class="form-select" onchange="filterBatches(1)">
+                                    <option value="">Select Skill/Course</option>
+                                    <?php
+                                    mysqli_data_seek($skills, 0); // Reset pointer
+                                    while ($sk = mysqli_fetch_assoc($skills)) { ?>
+                                        <option value="<?= $sk['id'] ?>" <?php echo (isset($_POST['skill_id_1']) && $_POST['skill_id_1'] == $sk['id']) ? 'selected' : ''; ?>>
+                                            <?= htmlspecialchars($sk['skill_name']) ?>
+                                        </option>
+                                    <?php } ?>
+                                </select>
+                            </div>
+
+                            <!-- First Batch -->
+                            <div>
+                                <label class="form-label">Select Batch</label>
+                                <select name="batch_id_1" id="batchSelect1" class="form-select" onchange="updateBatchOptions()">
+                                    <option value="">Select a skill first</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Second Enrollment Section (Optional) -->
+                    <div class="enrollment-section">
+                        <div class="enrollment-section-title">
+                            <i class="fas fa-book text-blue-500"></i>
+                            <span>Second Enrollment <span class="optional-tag">Optional</span></span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Second Skill -->
+                            <div>
+                                <label class="form-label">Select Skill</label>
+                                <select name="skill_id_2" id="skillSelect2" class="form-select" onchange="filterBatches(2)">
+                                    <option value="">Select Skill/Course</option>
+                                    <?php
+                                    mysqli_data_seek($skills, 0); // Reset pointer
+                                    while ($sk = mysqli_fetch_assoc($skills)) { ?>
+                                        <option value="<?= $sk['id'] ?>" <?php echo (isset($_POST['skill_id_2']) && $_POST['skill_id_2'] == $sk['id']) ? 'selected' : ''; ?>>
+                                            <?= htmlspecialchars($sk['skill_name']) ?>
+                                        </option>
+                                    <?php } ?>
+                                </select>
+                            </div>
+
+                            <!-- Second Batch -->
+                            <div>
+                                <label class="form-label">Select Batch</label>
+                                <select name="batch_id_2" id="batchSelect2" class="form-select">
+                                    <option value="">Select a skill first</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Enrollment Rules Info -->
+                    <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-info-circle text-blue-400 mt-0.5"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-blue-700">
+                                    <strong>Enrollment Rules:</strong>
+                                </p>
+                                <ul class="text-sm text-blue-700 mt-2 space-y-1">
+                                    <li>• Student can enroll in up to 2 different skills</li>
+                                    <li>• First enrollment must be in <strong>Batch A</strong></li>
+                                    <li>• Second enrollment must be in <strong>Batch B</strong> (different from first batch)</li>
+                                    <li>• If first enrollment is in Batch A, Batch A options will be disabled for second enrollment</li>
+                                    <li>• Both enrollments are optional - you can add student without enrollment</li>
+                                </ul>
+                                <p class="text-sm text-blue-700 mt-2">
+                                    <strong>Session:</strong> Current session (<?= $current_year ?>) is automatically selected.
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -536,11 +584,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     <!-- Submit Button -->
                     <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
                         <a href="students.php"
-                            class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded text-sm font-medium">
+                            class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded text-sm font-medium transition-colors">
                             Cancel
                         </a>
                         <button type="submit"
-                            class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded text-sm font-medium">
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded text-sm font-medium transition-colors">
                             <i class="fas fa-save mr-2"></i> Save Student
                         </button>
                     </div>
@@ -550,32 +598,173 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     </div>
 
     <script>
-        // Generate a suggested username from name
-        document.querySelector('input[name="name"]')?.addEventListener('blur', function() {
-            const name = this.value.trim();
-            const usernameInput = document.querySelector('input[name="username"]');
-            const emailInput = document.querySelector('input[name="email"]');
-
-            if (name && !usernameInput.value) {
-                // Create username: firstname.lastname + random 2 digits
-                const nameParts = name.toLowerCase().split(' ');
-                let suggestedUsername = '';
-                if (nameParts.length >= 2) {
-                    suggestedUsername = nameParts[0] + '.' + nameParts[nameParts.length - 1] + Math.floor(Math.random() * 100);
-                } else {
-                    suggestedUsername = nameParts[0] + Math.floor(Math.random() * 1000);
+        // All batches data for filtering
+        const allBatches = <?php echo json_encode($all_batches); ?>;
+        const webDevId = <?php echo $web_dev_id; ?>;
+        let selectedBatch1 = '';
+        let selectedBatchType1 = ''; // 'A' or 'B'
+        
+        // Function to filter batches based on selected skill
+        function filterBatches(enrollmentNumber) {
+            const skillSelect = document.getElementById(`skillSelect${enrollmentNumber}`);
+            const batchSelect = document.getElementById(`batchSelect${enrollmentNumber}`);
+            const selectedSkillId = parseInt(skillSelect.value);
+            
+            // Clear current options
+            batchSelect.innerHTML = '<option value="">Select Batch</option>';
+            
+            if (!selectedSkillId) {
+                // If no skill selected, show message
+                batchSelect.innerHTML = '<option value="">Select a skill first</option>';
+                if (enrollmentNumber === 1) {
+                    selectedBatch1 = '';
+                    selectedBatchType1 = '';
+                    updateBatchOptions();
                 }
-                usernameInput.value = suggestedUsername;
-
-                if (!emailInput.value) {
-                    const suggestedEmail = suggestedUsername + '@eduskillpro.com';
-                    emailInput.value = suggestedEmail;
-                }
+                return;
             }
-        });
-
-        // Auto-suggest password
+            
+            // Filter batches for the selected skill
+            const filteredBatches = allBatches.filter(batch => batch.skill_id == selectedSkillId);
+            
+            // Add filtered batches
+            filteredBatches.forEach(batch => {
+                let batchName = batch.batch_name;
+                
+                // Format batch name nicely
+                if (batchName.toLowerCase().includes('batch')) {
+                    // Already has "Batch" in name
+                    batchName = batchName.charAt(0).toUpperCase() + batchName.slice(1);
+                } else {
+                    // Add "Batch" prefix
+                    batchName = "Batch " + batchName;
+                }
+                
+                // Extract batch letter (A, B, etc.)
+                const batchLetter = batch.batch_name.replace('Batch ', '').trim().toUpperCase();
+                
+                const option = new Option(batchName, batch.id);
+                option.setAttribute('data-skill-id', batch.skill_id);
+                option.setAttribute('data-batch-letter', batchLetter);
+                
+                // For second enrollment, disable Batch A if it was selected in first enrollment
+                if (enrollmentNumber === 2 && selectedBatchType1 === 'A' && batchLetter === 'A') {
+                    option.disabled = true;
+                    option.classList.add('disabled-option');
+                    option.textContent = batchName + ' (Already enrolled in Batch A for another skill)';
+                }
+                
+                batchSelect.add(option);
+            });
+            
+            // If no batches found, add a disabled option
+            if (batchSelect.options.length === 1) {
+                const option = new Option('No batches available for this skill', '');
+                option.disabled = true;
+                batchSelect.add(option);
+            }
+        }
+        
+        // Update batch options for second enrollment when first batch changes
+        function updateBatchOptions() {
+            const batchSelect1 = document.getElementById('batchSelect1');
+            const selectedOption1 = batchSelect1.options[batchSelect1.selectedIndex];
+            
+            // Store selected batch info
+            selectedBatch1 = batchSelect1.value;
+            selectedBatchType1 = selectedOption1.getAttribute('data-batch-letter') || '';
+            
+            // If second skill is selected, refresh its batches
+            const skillSelect2 = document.getElementById('skillSelect2');
+            if (skillSelect2.value) {
+                filterBatches(2);
+            }
+            
+            // Enforce rule: First enrollment must be in Batch A
+            if (selectedBatchType1 && selectedBatchType1 !== 'A') {
+                alert('First enrollment must be in Batch A. Please select Batch A for first enrollment.');
+                batchSelect1.value = '';
+                selectedBatch1 = '';
+                selectedBatchType1 = '';
+                // Re-filter to show all options
+                filterBatches(1);
+            }
+        }
+        
+        // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
+            // Initially disable batch selections until skills are chosen
+            document.getElementById('batchSelect1').innerHTML = '<option value="">Select a skill first</option>';
+            document.getElementById('batchSelect2').innerHTML = '<option value="">Select a skill first</option>';
+            
+            // If skills are already selected from previous form submission, filter batches
+            const skillSelect1 = document.getElementById('skillSelect1');
+            const skillSelect2 = document.getElementById('skillSelect2');
+            
+            if (skillSelect1.value) {
+                filterBatches(1);
+                
+                // If batch was previously selected, try to restore it
+                <?php if (isset($_POST['batch_id_1']) && $_POST['batch_id_1']): ?>
+                    const selectedBatchId1 = <?= $_POST['batch_id_1'] ?>;
+                    setTimeout(() => {
+                        const batchSelect1 = document.getElementById('batchSelect1');
+                        for (let i = 0; i < batchSelect1.options.length; i++) {
+                            if (batchSelect1.options[i].value == selectedBatchId1) {
+                                batchSelect1.selectedIndex = i;
+                                updateBatchOptions();
+                                break;
+                            }
+                        }
+                    }, 100);
+                <?php endif; ?>
+            }
+            
+            if (skillSelect2.value) {
+                setTimeout(() => {
+                    filterBatches(2);
+                    
+                    // If batch was previously selected, try to restore it
+                    <?php if (isset($_POST['batch_id_2']) && $_POST['batch_id_2']): ?>
+                        const selectedBatchId2 = <?= $_POST['batch_id_2'] ?>;
+                        setTimeout(() => {
+                            const batchSelect2 = document.getElementById('batchSelect2');
+                            for (let i = 0; i < batchSelect2.options.length; i++) {
+                                if (batchSelect2.options[i].value == selectedBatchId2) {
+                                    batchSelect2.selectedIndex = i;
+                                    break;
+                                }
+                            }
+                        }, 200);
+                    <?php endif; ?>
+                }, 150);
+            }
+            
+            // Generate a suggested username from name
+            document.querySelector('input[name="name"]')?.addEventListener('blur', function() {
+                const name = this.value.trim();
+                const usernameInput = document.querySelector('input[name="username"]');
+                const emailInput = document.querySelector('input[name="email"]');
+                
+                if (name && !usernameInput.value) {
+                    // Create username: firstname.lastname + random 2 digits
+                    const nameParts = name.toLowerCase().split(' ');
+                    let suggestedUsername = '';
+                    if (nameParts.length >= 2) {
+                        suggestedUsername = nameParts[0] + '.' + nameParts[nameParts.length - 1] + Math.floor(Math.random() * 100);
+                    } else {
+                        suggestedUsername = nameParts[0] + Math.floor(Math.random() * 1000);
+                    }
+                    usernameInput.value = suggestedUsername;
+                    
+                    if (!emailInput.value) {
+                        const suggestedEmail = suggestedUsername + '@eduskillpro.com';
+                        emailInput.value = suggestedEmail;
+                    }
+                }
+            });
+            
+            // Auto-suggest password
             const passwordInput = document.querySelector('input[name="password"]');
             if (!passwordInput.value) {
                 const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -585,27 +774,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 }
                 passwordInput.value = password;
             }
-
+            
             // Set admission date to today if not set
             const admissionDateInput = document.querySelector('input[name="admission_date"]');
             if (!admissionDateInput.value) {
                 admissionDateInput.value = '<?php echo date("Y-m-d"); ?>';
             }
-        });
-
-        // Real-time validation
-        const inputs = document.querySelectorAll('.form-input, .form-select');
-        inputs.forEach(input => {
-            input.addEventListener('blur', function() {
-                if (this.hasAttribute('required') && this.value.trim() === '') {
-                    this.classList.add('border-red-300');
-                } else {
+            
+            // Real-time validation
+            const inputs = document.querySelectorAll('.form-input, .form-select');
+            inputs.forEach(input => {
+                input.addEventListener('blur', function() {
+                    if (this.hasAttribute('required') && this.value.trim() === '') {
+                        this.classList.add('border-red-300');
+                    } else {
+                        this.classList.remove('border-red-300');
+                    }
+                });
+                
+                input.addEventListener('input', function() {
                     this.classList.remove('border-red-300');
-                }
-            });
-
-            input.addEventListener('input', function() {
-                this.classList.remove('border-red-300');
+                });
             });
         });
     </script>

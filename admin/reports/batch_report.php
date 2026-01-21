@@ -65,32 +65,7 @@ $batch_data = mysqli_query($conn, "
             border: 1px solid #e5e7eb;
         }
 
-        .sidebar {
-            background: #111827;
-            color: white;
-        }
-
-        .sidebar-link {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 16px;
-            border-radius: 6px;
-            transition: all 0.2s ease;
-            color: #d1d5db;
-            text-decoration: none;
-        }
-
-        .sidebar-link:hover {
-            background: #374151;
-            color: white;
-        }
-
-        .sidebar-link.active {
-            background: #3b82f6;
-            color: white;
-        }
-
+        
         .search-box {
             padding: 8px 12px;
             border: 1px solid #d1d5db;
@@ -125,46 +100,7 @@ $batch_data = mysqli_query($conn, "
 
     <div class="flex">
         <!-- SIDEBAR -->
-        <aside class="w-64 sidebar h-screen sticky top-0">
-            <div class="p-4 border-b border-gray-700">
-                <h2 class="text-xl font-bold text-white">🎓 EduSkill Pro</h2>
-                <p class="text-xs text-gray-300 mt-1">Admin Panel</p>
-            </div>
-
-            <nav class="p-3 space-y-1">
-                <a href="../dashboard.php" class="sidebar-link">
-                    <i class="fas fa-chart-line"></i> Dashboard
-                </a>
-
-                <div class="mt-4">
-                    <p class="text-xs text-gray-400 px-3 mb-2 uppercase tracking-wider">Reports</p>
-                    <a href="batch_report.php" class="sidebar-link active">
-                        <i class="fas fa-layer-group"></i> Batch Report
-                    </a>
-                    <a href="student_report.php" class="sidebar-link">
-                        <i class="fas fa-user-graduate"></i> Student Report
-                    </a>
-                    <a href="teacher_report.php" class="sidebar-link">
-                        <i class="fas fa-chalkboard-teacher"></i> Teacher Report
-                    </a>
-                    <a href="attendance_report.php" class="sidebar-link">
-                        <i class="fas fa-calendar-check"></i> Attendance Report
-                    </a>
-                    <a href="fee_report.php" class="sidebar-link">
-                        <i class="fas fa-cash-register"></i> Fee Report
-                    </a>
-                    <a href="donation_report.php" class="sidebar-link">
-                        <i class="fas fa-hand-holding-usd"></i> Donation Report
-                    </a>
-                    <a href="expense_report.php" class="sidebar-link">
-                        <i class="fas fa-wallet"></i> Expense Report
-                    </a>
-                    <a href="profit_report.php" class="sidebar-link">
-                        <i class="fas fa-chart-line"></i> Profit Report
-                    </a>
-                </div>
-            </nav>
-        </aside>
+        <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
         <!-- MAIN CONTENT -->
         <main class="flex-1 p-6">

@@ -35,32 +35,8 @@ if (isset($_GET['activate_id'])) {
             font-family: 'Inter', sans-serif;
         }
 
-        .sidebar {
-            background: #111827;
-            /* Dark sidebar */
-            color: white;
-        }
+        
 
-        .sidebar-link {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 16px;
-            border-radius: 6px;
-            transition: all 0.2s ease;
-            color: #d1d5db;
-            text-decoration: none;
-        }
-
-        .sidebar-link:hover {
-            background: #374151;
-            color: white;
-        }
-
-        .sidebar-link.active {
-            background: #3b82f6;
-            color: white;
-        }
 
         .action-btn {
             padding: 4px 10px;
@@ -111,52 +87,7 @@ if (isset($_GET['activate_id'])) {
 
     <div class="flex">
         <!-- SIDEBAR -->
-        <aside class="w-64 sidebar h-screen sticky top-0">
-            <div class="p-4 border-b border-gray-700">
-                <h2 class="text-xl font-bold text-white">🎓 EduSkill Pro</h2>
-                <p class="text-xs text-gray-300 mt-1">Admin Panel</p>
-            </div>
-
-            <nav class="p-3 space-y-1">
-                <a href="../dashboard.php" class="sidebar-link">
-                    <i class="fas fa-chart-line"></i> Dashboard
-                </a>
-
-                <div class="mt-4">
-                    <p class="text-xs text-gray-400 px-3 mb-2 uppercase tracking-wider">Skills & Courses</p>
-                    <a href="../skills/skills.php" class="sidebar-link">
-                        <i class="fas fa-book-open"></i> Skills
-                    </a>
-                </div>
-
-                <div class="mt-4">
-                    <p class="text-xs text-gray-400 px-3 mb-2 uppercase tracking-wider">Academic</p>
-                    <a href="../sessions/sessions.php" class="sidebar-link">
-                        <i class="fas fa-calendar-alt"></i> Sessions
-                    </a>
-                    <a href="batches.php" class="sidebar-link">
-                        <i class="fas fa-layer-group"></i> Batches
-                    </a>
-                    <a href="completed_batches.php" class="sidebar-link active">
-                        <i class="fas fa-history"></i> Completed
-                    </a>
-                </div>
-
-                <div class="mt-4">
-                    <p class="text-xs text-gray-400 px-3 mb-2 uppercase tracking-wider">Operations</p>
-                    <a href="../enrollments/enrollment_list.php" class="sidebar-link">
-                        <i class="fas fa-user-check"></i> Enrollments
-                    </a>
-                </div>
-            </nav>
-
-            <div class="p-3 border-t border-gray-700 mt-auto">
-                <a href="batches.php" class="w-full flex items-center justify-center gap-2 text-sm p-2 rounded bg-blue-600 text-white hover:bg-blue-700">
-                    <i class="fas fa-arrow-left"></i>
-                    <span>Back to Active</span>
-                </a>
-            </div>
-        </aside>
+         <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
         <!-- MAIN CONTENT -->
         <main class="flex-1 p-4">

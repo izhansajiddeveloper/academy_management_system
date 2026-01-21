@@ -324,69 +324,7 @@ $payment_percentage = $course_fee > 0 ? ($total_paid / $course_fee) * 100 : 0;
     <div class="flex min-h-screen">
 
         <!-- SIDEBAR -->
-        <aside class="w-64 bg-white shadow-xl sticky top-0 h-screen">
-            <div class="p-6 text-center border-b">
-                <h2 class="text-2xl font-bold text-[var(--primary)]">
-                    🎓 EduSkill Pro
-                </h2>
-                <p class="text-sm text-gray-500 mt-1">Admin Panel</p>
-            </div>
-
-            <nav class="p-4 space-y-2 text-gray-700">
-                <!-- Dashboard -->
-                <a href="../dashboard.php"
-                    class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 text-gray-700">
-                    <i class="fas fa-chart-line text-[var(--primary)]"></i> Dashboard
-                </a>
-
-                <!-- Skills -->
-                <a href="../skills/skills.php"
-                    class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 text-gray-700">
-                    <i class="fas fa-book-open text-[var(--primary)]"></i> Skills / Courses
-                </a>
-
-                <!-- FEES (Active) -->
-                <a href="../fees/fee_collection.php"
-                    class="flex items-center gap-3 p-3 rounded-lg bg-blue-50 text-[var(--primary)] font-semibold">
-                    <i class="fas fa-money-bill-wave text-[var(--primary)]"></i> Fees
-                </a>
-
-                <!-- Fees Submenu -->
-                <div class="ml-8 space-y-1">
-                    <a href="../fees/fee_structures.php"
-                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-blue-50 transition-colors">
-                        <i class="fas fa-calculator text-sm"></i>
-                        <span>Fee Structures</span>
-                    </a>
-
-                    <a href="../fees/fee_collection.php"
-                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-blue-50 transition-colors">
-                        <i class="fas fa-cash-register text-sm"></i>
-                        <span>Fee Collection</span>
-                    </a>
-
-                    <a href="collect_fee.php"
-                        class="flex items-center gap-2 p-2 rounded-lg bg-blue-100 text-[var(--primary)] font-semibold">
-                        <i class="fas fa-plus-circle text-sm"></i>
-                        <span>Collect Fee</span>
-                    </a>
-
-                    <a href="../fees/fee_report.php"
-                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-blue-50 transition-colors">
-                        <i class="fas fa-chart-pie text-sm"></i>
-                        <span>Fee Reports</span>
-                    </a>
-                </div>
-
-                <!-- Other menu items -->
-                <a href="../enrollments/enrollment_list.php" class="sidebar-link">
-                    <i class="fas fa-user-check"></i> Enrollments
-                </a>
-                <a href="../expenses/expenses.php" class="sidebar-link">
-                    <i class="fas fa-wallet"></i> Expenses
-                </a>
-            </nav>
-        </aside>
+         <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
         <!-- MAIN CONTENT -->
         <main class="flex-1 p-6">

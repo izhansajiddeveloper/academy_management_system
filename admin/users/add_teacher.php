@@ -71,61 +71,48 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <title>Add Teacher | Academy Management System</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
     <style>
-        /* Same styles as add_student.php */
-        :root {
-            --primary: #6366f1;
-            --secondary: #10b981;
-            --accent: #f59e0b;
-            --dark: #1f2937;
-            --light: #f8fafc;
-        }
-
         * {
             font-family: 'Inter', sans-serif;
         }
 
-        body {
-            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-            min-height: 100vh;
-        }
-
-        .sidebar-link {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px;
-            border-radius: 10px;
-            transition: all 0.3s ease;
-        }
-
-        .sidebar-link:hover {
-            background: #f1f5f9;
-            color: var(--primary);
-        }
-
-        .form-card {
+        .form-container {
             background: white;
-            border-radius: 16px;
+            border-radius: 6px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
             border: 1px solid #e5e7eb;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
         }
 
         .form-input {
             width: 100%;
-            padding: 12px 16px;
-            border: 2px solid #e5e7eb;
-            border-radius: 10px;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
             font-size: 14px;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
         }
 
         .form-input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
             outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .form-select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+        }
+
+        .form-select:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            outline: none;
         }
 
         .form-label {
@@ -133,7 +120,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             font-size: 14px;
             font-weight: 500;
             color: #374151;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #e5e7eb;
+            margin-bottom: 20px;
         }
 
         .required:after {
@@ -141,36 +137,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             color: #ef4444;
         }
 
-        .btn-primary {
-            background: linear-gradient(135deg, var(--primary) 0%, #8b5cf6 100%);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 10px;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            border: none;
-            cursor: pointer;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(99, 102, 241, 0.2);
-        }
-
-        .section-title {
-            font-size: 18px;
-            font-weight: 600;
-            color: #111827;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #f3f4f6;
+        .border-red-300 {
+            border-color: #fca5a5;
         }
 
         .avatar-preview {
             width: 100px;
             height: 100px;
             border-radius: 50%;
-            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -182,321 +157,253 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     </style>
 </head>
 
-<body class="min-h-screen">
+<body class="bg-gray-50 min-h-screen">
 
     <?php include __DIR__ . '/../../includes/navbar.php'; ?>
 
-    <div class="flex min-h-screen">
-
-        <!-- SIDEBAR (Same as before) -->
-        <aside class="w-64 bg-white shadow-xl sticky top-0 h-screen">
-            <div class="p-6 text-center border-b">
-                <h2 class="text-2xl font-bold text-[var(--primary)]">
-                    🎓 EduSkill Pro
-                </h2>
-                <p class="text-sm text-gray-500 mt-1">Admin Panel</p>
-            </div>
-
-            <nav class="p-4 space-y-2 text-gray-700">
-                <!-- Dashboard -->
-                <a href="../dashboard.php"
-                    class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 text-gray-700">
-                    <i class="fas fa-chart-line text-[var(--primary)]"></i> Dashboard
-                </a>
-
-                <!-- USERS -->
-                <a href="teachers.php"
-                    class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 text-gray-700">
-                    <i class="fas fa-users text-[var(--primary)]"></i> Users
-                </a>
-
-                <!-- Users Submenu -->
-                <div class="ml-8 space-y-1">
-                    <a href="students.php"
-                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-blue-50 transition-colors">
-                        <i class="fas fa-graduation-cap text-sm"></i>
-                        <span>Students</span>
-                    </a>
-                    <a href="teachers.php"
-                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-blue-50 transition-colors">
-                        <i class="fas fa-chalkboard-teacher text-sm"></i>
-                        <span>Teachers</span>
-                    </a>
-                    <a href="inactive_users.php"
-                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-blue-50 transition-colors">
-                        <i class="fas fa-user-slash text-sm"></i>
-                        <span>Inactive Users</span>
-                    </a>
-                </div>
-
-                <!-- Other menu items -->
-                <a href="../skills/skills.php" class="sidebar-link">
-                    <i class="fas fa-book-open"></i> Skills / Courses
-                </a>
-                <a href="../sessions/sessions.php" class="sidebar-link">
-                    <i class="fas fa-calendar-alt"></i> Sessions
-                </a>
-                <a href="../batches/batches.php" class="sidebar-link">
-                    <i class="fas fa-layer-group"></i> Batches
-                </a>
-                <a href="../enrollments/enrollment_list.php" class="sidebar-link">
-                    <i class="fas fa-user-check"></i> Enrollments
-                </a>
-                <a href="../fees/fee_collection.php" class="sidebar-link">
-                    <i class="fas fa-money-bill-wave"></i> Fees
-                </a>
-                <a href="../expenses/expenses.php" class="sidebar-link">
-                    <i class="fas fa-wallet"></i> Expenses
-                </a>
-                <a href="../reports/student_report.php" class="sidebar-link">
-                    <i class="fas fa-file-alt"></i> Reports
-                </a>
-            </nav>
-
-            <div class="mt-8 p-4 border-t border-gray-100">
-                <h4 class="font-semibold text-gray-700 mb-3 text-sm uppercase tracking-wider">Quick Actions</h4>
-                <div class="space-y-2">
-                    <a href="add_teacher.php" class="flex items-center gap-2 text-sm p-2 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 transition-colors">
-                        <i class="fas fa-user-plus"></i>
-                        <span>Add Teacher</span>
-                    </a>
-                </div>
-            </div>
-        </aside>
+    <div class="flex">
+        <!-- SIDEBAR - INCLUDED FROM EXTERNAL FILE -->
+        <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
         <!-- MAIN CONTENT -->
         <main class="flex-1 p-6">
             <!-- Header -->
-            <div class="flex justify-between items-center mb-8">
+            <div class="flex justify-between items-center mb-6">
                 <div>
-                    <h1 class="text-3xl font-bold text-gray-800">Add New Teacher</h1>
-                    <p class="text-gray-500 mt-2">
-                        <i class="fas fa-chalkboard-teacher text-purple-500 mr-2"></i>
+                    <h1 class="text-2xl font-bold text-gray-800">Add New Teacher</h1>
+                    <p class="text-gray-500 text-sm mt-1">
+                        <i class="fas fa-chalkboard-teacher text-purple-500 mr-1"></i>
                         Register a new teacher to the academy
                     </p>
                 </div>
-                <div class="flex items-center gap-3">
+                <div>
                     <a href="teachers.php"
-                        class="bg-white text-gray-700 px-5 py-3 rounded-lg font-medium border border-gray-300 hover:bg-gray-50 transition-all duration-300">
-                        <i class="fas fa-arrow-left mr-2"></i> Back to Teachers
+                        class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors">
+                        <i class="fas fa-arrow-left mr-1"></i> Back to Teachers
                     </a>
                 </div>
             </div>
 
             <!-- Messages -->
             <?php if ($success_message): ?>
-                <div class="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl flex items-center gap-3">
-                    <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                        <i class="fas fa-check text-green-600"></i>
-                    </div>
-                    <div>
-                        <p class="font-medium text-green-800">Success!</p>
-                        <p class="text-green-600 text-sm"><?php echo $success_message; ?></p>
+                <div class="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-check-circle text-green-400 text-lg"></i>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-green-800">Success</h3>
+                            <div class="mt-2 text-sm text-green-700">
+                                <p><?php echo $success_message; ?></p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             <?php endif; ?>
 
             <?php if ($error_message): ?>
-                <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3">
-                    <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                        <i class="fas fa-exclamation-triangle text-red-600"></i>
-                    </div>
-                    <div>
-                        <p class="font-medium text-red-800">Error!</p>
-                        <p class="text-red-600 text-sm"><?php echo $error_message; ?></p>
+                <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-exclamation-triangle text-red-400 text-lg"></i>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-red-800">Error</h3>
+                            <div class="mt-2 text-sm text-red-700">
+                                <p><?php echo $error_message; ?></p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             <?php endif; ?>
 
-            <!-- Form -->
-            <form method="post" class="form-card p-8 max-w-4xl mx-auto">
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <!-- Personal Information -->
-                    <div>
-                        <h3 class="section-title">
-                            <i class="fas fa-user-circle"></i> Personal Information
-                        </h3>
+            <!-- Teacher Form -->
+            <div class="form-container">
+                <form method="POST">
+                    <!-- Personal Information Section -->
+                    <div class="mb-8">
+                        <h3 class="section-title">Personal Information</h3>
 
-                        <div class="space-y-6">
-                            <!-- Avatar Preview -->
-                            <div class="avatar-preview" id="avatarPreview">
-                                <span id="avatarInitial">?</span>
-                            </div>
+                        <!-- Avatar Preview -->
+                        <div class="avatar-preview" id="avatarPreview">
+                            <span id="avatarInitial">?</span>
+                        </div>
 
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Full Name -->
                             <div>
                                 <label class="form-label required">Full Name</label>
                                 <input type="text"
                                     name="name"
-                                    placeholder="Enter teacher's full name"
-                                    required
                                     class="form-input"
+                                    placeholder="Enter teacher's full name"
                                     value="<?php echo isset($_POST['name']) ? htmlspecialchars($_POST['name']) : ''; ?>"
+                                    required
                                     oninput="updateAvatar()">
                             </div>
 
+                            <!-- Qualification -->
                             <div>
                                 <label class="form-label required">Qualification</label>
                                 <input type="text"
                                     name="qualification"
-                                    placeholder="e.g., M.Sc. Computer Science, B.Ed."
-                                    required
                                     class="form-input"
-                                    value="<?php echo isset($_POST['qualification']) ? htmlspecialchars($_POST['qualification']) : ''; ?>">
+                                    placeholder="e.g., M.Sc. Computer Science, B.Ed."
+                                    value="<?php echo isset($_POST['qualification']) ? htmlspecialchars($_POST['qualification']) : ''; ?>"
+                                    required>
                             </div>
 
+                            <!-- Specialization -->
                             <div>
-                                <label class="form-label required">Specialization</label>
+                                <label class="form-label">Specialization</label>
                                 <input type="text"
                                     name="specialization"
-                                    placeholder="e.g., Web Development, Data Science"
                                     class="form-input"
+                                    placeholder="e.g., Web Development, Data Science"
                                     value="<?php echo isset($_POST['specialization']) ? htmlspecialchars($_POST['specialization']) : ''; ?>">
                             </div>
 
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="form-label required">Experience (Years)</label>
-                                    <input type="number"
-                                        name="experience_years"
-                                        placeholder="Years"
-                                        required
-                                        min="0"
-                                        class="form-input"
-                                        value="<?php echo isset($_POST['experience_years']) ? $_POST['experience_years'] : ''; ?>">
-                                </div>
-                                <div>
-                                    <label class="form-label required">Phone Number</label>
-                                    <input type="tel"
-                                        name="phone"
-                                        placeholder="Phone number"
-                                        required
-                                        class="form-input"
-                                        value="<?php echo isset($_POST['phone']) ? htmlspecialchars($_POST['phone']) : ''; ?>">
-                                </div>
+                            <!-- Experience Years -->
+                            <div>
+                                <label class="form-label required">Experience (Years)</label>
+                                <input type="number"
+                                    name="experience_years"
+                                    class="form-input"
+                                    placeholder="Years of experience"
+                                    value="<?php echo isset($_POST['experience_years']) ? $_POST['experience_years'] : ''; ?>"
+                                    required
+                                    min="0">
+                            </div>
+
+                            <!-- Phone Number -->
+                            <div>
+                                <label class="form-label required">Phone Number</label>
+                                <input type="tel"
+                                    name="phone"
+                                    class="form-input"
+                                    placeholder="Enter phone number"
+                                    value="<?php echo isset($_POST['phone']) ? htmlspecialchars($_POST['phone']) : ''; ?>"
+                                    required>
+                            </div>
+
+                            <!-- Email -->
+                            <div>
+                                <label class="form-label required">Email</label>
+                                <input type="email"
+                                    name="email"
+                                    class="form-input"
+                                    placeholder="teacher@example.com"
+                                    value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>"
+                                    required>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Login Information -->
-                    <div>
-                        <h3 class="section-title">
-                            <i class="fas fa-key"></i> Login Information
-                        </h3>
-
-                        <div class="space-y-6">
+                    <!-- Login Information Section -->
+                    <div class="mb-8">
+                        <h3 class="section-title">Login Information</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Username -->
                             <div>
                                 <label class="form-label required">Username</label>
-                                <div class="relative">
-                                    <input type="text"
-                                        name="username"
-                                        placeholder="Choose a username for login"
-                                        required
-                                        class="form-input"
-                                        value="<?php echo isset($_POST['username']) ? htmlspecialchars($_POST['username']) : ''; ?>">
-                                    <div class="absolute right-3 top-3 text-gray-400">
-                                        <i class="fas fa-at"></i>
-                                    </div>
-                                </div>
+                                <input type="text"
+                                    name="username"
+                                    class="form-input"
+                                    placeholder="Enter username"
+                                    value="<?php echo isset($_POST['username']) ? htmlspecialchars($_POST['username']) : ''; ?>"
+                                    required>
                             </div>
 
-                            <div>
-                                <label class="form-label required">Email Address</label>
-                                <div class="relative">
-                                    <input type="email"
-                                        name="email"
-                                        placeholder="teacher@example.com"
-                                        required
-                                        class="form-input"
-                                        value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>">
-                                    <div class="absolute right-3 top-3 text-gray-400">
-                                        <i class="fas fa-envelope"></i>
-                                    </div>
-                                </div>
-                            </div>
-
+                            <!-- Password -->
                             <div>
                                 <label class="form-label required">Password</label>
-                                <div class="relative">
-                                    <input type="text"
-                                        name="password"
-                                        placeholder="Enter password"
-                                        required
-                                        class="form-input"
-                                        value="<?php echo isset($_POST['password']) ? htmlspecialchars($_POST['password']) : ''; ?>"
-                                        id="passwordInput">
-                                    <div class="absolute right-3 top-3 text-gray-400">
-                                        <i class="fas fa-lock"></i>
-                                    </div>
-                                </div>
+                                <input type="text"
+                                    name="password"
+                                    class="form-input"
+                                    placeholder="Enter password"
+                                    value="<?php echo isset($_POST['password']) ? htmlspecialchars($_POST['password']) : ''; ?>"
+                                    required
+                                    id="passwordInput">
                                 <p class="text-xs text-gray-500 mt-1">
                                     <i class="fas fa-exclamation-triangle text-yellow-500 mr-1"></i>
-                                    Password will be stored as plain text (as per requirement)
+                                    Password will be stored as plain text
                                 </p>
                             </div>
+                        </div>
+                    </div>
 
-                            <div class="p-4 bg-gray-50 rounded-lg">
-                                <h4 class="font-medium text-gray-700 mb-2">
-                                    <i class="fas fa-bolt text-yellow-500 mr-2"></i>
-                                    Auto-generated Information
-                                </h4>
-                                <div class="space-y-2 text-sm text-gray-600">
-                                    <div class="flex items-center gap-2">
-                                        <i class="fas fa-id-card text-gray-400"></i>
-                                        <span>Teacher Code: <span class="font-mono font-medium">TCH-<?php echo date('Ymd'); ?>XXXX</span></span>
-                                    </div>
-                                    <div class="flex items-center gap-2">
-                                        <i class="fas fa-calendar text-gray-400"></i>
-                                        <span>Registration Date: <?php echo date('F j, Y'); ?></span>
-                                    </div>
-                                    <div class="flex items-center gap-2">
-                                        <i class="fas fa-user-tag text-gray-400"></i>
-                                        <span>User Type: Teacher</span>
-                                    </div>
-                                    <div class="flex items-center gap-2">
-                                        <i class="fas fa-circle text-green-400"></i>
-                                        <span>Status: Active</span>
-                                    </div>
-                                </div>
+                    <!-- Auto-generated Information -->
+                    <div class="mb-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4">Auto-generated Information</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-id-card text-gray-400"></i>
+                                <span class="text-sm text-gray-600">
+                                    Teacher Code: <span class="font-mono font-medium">TCH-<?php echo date('Ymd'); ?>XXXX</span>
+                                </span>
                             </div>
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-calendar text-gray-400"></i>
+                                <span class="text-sm text-gray-600">
+                                    Registration Date: <?php echo date('F j, Y'); ?>
+                                </span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-user-tag text-gray-400"></i>
+                                <span class="text-sm text-gray-600">
+                                    User Type: Teacher
+                                </span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-circle text-green-400"></i>
+                                <span class="text-sm text-gray-600">
+                                    Status: Active
+                                </span>
+                            </div>
+                        </div>
+                    </div>
 
-                            <div class="p-4 bg-purple-50 rounded-lg">
-                                <h4 class="font-medium text-purple-700 mb-2">
-                                    <i class="fas fa-lightbulb text-purple-600 mr-2"></i>
-                                    Important Notes
-                                </h4>
-                                <ul class="text-sm text-purple-600 space-y-1">
-                                    <li>• Teacher will receive login credentials</li>
+                    <!-- Important Notes -->
+                    <div class="mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-info-circle text-blue-400 mt-0.5"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-blue-700">
+                                    <strong>Important Notes:</strong>
+                                </p>
+                                <ul class="text-sm text-blue-700 mt-2 space-y-1">
+                                    <li>• Teacher will receive login credentials via email</li>
                                     <li>• Email address must be active for communication</li>
                                     <li>• Phone number will be used for emergency contact</li>
                                     <li>• Teacher code will be generated automatically</li>
+                                    <li>• Specialization helps in assigning relevant courses</li>
                                 </ul>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Form Actions -->
-                <div class="flex justify-end gap-4 mt-12 pt-8 border-t border-gray-200">
-                    <a href="teachers.php"
-                        class="bg-white text-gray-700 px-6 py-3 rounded-lg font-medium border border-gray-300 hover:bg-gray-50 transition-all duration-300">
-                        <i class="fas fa-times mr-2"></i> Cancel
-                    </a>
-                    <button type="submit"
-                        class="btn-primary flex items-center gap-2">
-                        <i class="fas fa-save"></i> Save Teacher
-                    </button>
-                </div>
-            </form>
+                    <!-- Submit Button -->
+                    <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                        <a href="teachers.php"
+                            class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded text-sm font-medium transition-colors">
+                            Cancel
+                        </a>
+                        <button type="submit"
+                            class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded text-sm font-medium transition-colors">
+                            <i class="fas fa-save mr-2"></i> Save Teacher
+                        </button>
+                    </div>
+                </form>
+            </div>
         </main>
     </div>
-
-    <?php include __DIR__ . '/../../includes/footer.php'; ?>
 
     <script>
         function updateAvatar() {
             const nameInput = document.querySelector('input[name="name"]');
             const avatarInitial = document.getElementById('avatarInitial');
-            const avatarPreview = document.getElementById('avatarPreview');
 
             if (nameInput.value.trim()) {
                 const initial = nameInput.value.trim().charAt(0).toUpperCase();
@@ -506,10 +413,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
         }
 
-        // Generate password if empty
+        // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
             updateAvatar();
 
+            // Auto-suggest password
             const passwordInput = document.getElementById('passwordInput');
             if (!passwordInput.value) {
                 const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -520,14 +428,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 passwordInput.value = password;
             }
 
-            // Auto-suggest username
-            document.querySelector('input[name="name"]').addEventListener('blur', function() {
+            // Generate a suggested username from name
+            document.querySelector('input[name="name"]')?.addEventListener('blur', function() {
                 const name = this.value.trim();
                 const usernameInput = document.querySelector('input[name="username"]');
                 const emailInput = document.querySelector('input[name="email"]');
 
                 if (name && !usernameInput.value) {
-                    const suggestedUsername = name.toLowerCase().replace(/\s+/g, '.') + Math.floor(Math.random() * 100);
+                    // Create username: firstname.lastname + random 2 digits
+                    const nameParts = name.toLowerCase().split(' ');
+                    let suggestedUsername = '';
+                    if (nameParts.length >= 2) {
+                        suggestedUsername = nameParts[0] + '.' + nameParts[nameParts.length - 1] + Math.floor(Math.random() * 100);
+                    } else {
+                        suggestedUsername = nameParts[0] + Math.floor(Math.random() * 1000);
+                    }
                     usernameInput.value = suggestedUsername;
 
                     if (!emailInput.value) {
@@ -535,6 +450,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         emailInput.value = suggestedEmail;
                     }
                 }
+            });
+
+            // Real-time validation
+            const inputs = document.querySelectorAll('.form-input, .form-select');
+            inputs.forEach(input => {
+                input.addEventListener('blur', function() {
+                    if (this.hasAttribute('required') && this.value.trim() === '') {
+                        this.classList.add('border-red-300');
+                    } else {
+                        this.classList.remove('border-red-300');
+                    }
+                });
+
+                input.addEventListener('input', function() {
+                    this.classList.remove('border-red-300');
+                });
             });
         });
     </script>

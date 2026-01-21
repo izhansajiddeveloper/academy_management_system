@@ -103,19 +103,8 @@ $sessions = mysqli_query($conn, "SELECT * FROM sessions WHERE status='active' OR
             min-height: 100vh;
         }
 
-        .sidebar-link {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px;
-            border-radius: 10px;
-            transition: all 0.3s ease;
-        }
 
-        .sidebar-link:hover {
-            background: #f1f5f9;
-            color: var(--primary);
-        }
+
 
         .form-card {
             background: white;
@@ -184,78 +173,7 @@ $sessions = mysqli_query($conn, "SELECT * FROM sessions WHERE status='active' OR
     <div class="flex min-h-screen">
 
         <!-- SIDEBAR -->
-        <aside class="w-64 bg-white shadow-xl sticky top-0 h-screen">
-            <div class="p-6 text-center border-b">
-                <h2 class="text-2xl font-bold text-[var(--primary)]">
-                    🎓 EduSkill Pro
-                </h2>
-                <p class="text-sm text-gray-500 mt-1">Admin Panel</p>
-            </div>
-
-            <nav class="p-4 space-y-2 text-gray-700">
-                <!-- Dashboard -->
-                <a href="../dashboard.php"
-                    class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 text-gray-700">
-                    <i class="fas fa-chart-line text-[var(--primary)]"></i> Dashboard
-                </a>
-
-                <!-- Skills -->
-                <a href="../skills/skills.php"
-                    class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 text-gray-700">
-                    <i class="fas fa-book-open text-[var(--primary)]"></i> Skills / Courses
-                </a>
-
-                <!-- Sessions -->
-                <a href="../sessions/sessions.php"
-                    class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 text-gray-700">
-                    <i class="fas fa-calendar-alt text-[var(--primary)]"></i> Sessions
-                </a>
-
-                <!-- Batches -->
-                <a href="../batches/batches.php"
-                    class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 text-gray-700">
-                    <i class="fas fa-layer-group text-[var(--primary)]"></i> Batches
-                </a>
-
-                <!-- FEES -->
-                <a href="fee_structures.php"
-                    class="flex items-center gap-3 p-3 rounded-lg bg-blue-50 text-[var(--primary)] font-semibold">
-                    <i class="fas fa-money-bill-wave text-[var(--primary)]"></i> Fees
-                </a>
-
-                <!-- Fees Submenu -->
-                <div class="ml-8 space-y-1">
-                    <a href="fee_structures.php"
-                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-blue-50 transition-colors">
-                        <i class="fas fa-calculator text-sm"></i>
-                        <span>Fee Structures</span>
-                    </a>
-
-                    <a href="fee_collection.php"
-                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-blue-50 transition-colors">
-                        <i class="fas fa-cash-register text-sm"></i>
-                        <span>Fee Collection</span>
-                    </a>
-
-                    <a href="add_fee_structure.php"
-                        class="flex items-center gap-2 p-2 rounded-lg bg-blue-100 text-[var(--primary)] font-semibold">
-                        <i class="fas fa-plus-circle text-sm"></i>
-                        <span><?= $editing ? 'Edit Structure' : 'Add Structure' ?></span>
-                    </a>
-                </div>
-
-                <!-- Other menu items -->
-                <a href="../enrollments/enrollment_list.php" class="sidebar-link">
-                    <i class="fas fa-user-check"></i> Enrollments
-                </a>
-                <a href="../expenses/expenses.php" class="sidebar-link">
-                    <i class="fas fa-wallet"></i> Expenses
-                </a>
-                <a href="../reports/student_report.php" class="sidebar-link">
-                    <i class="fas fa-file-alt"></i> Reports
-                </a>
-            </nav>
-        </aside>
+        <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
         <!-- MAIN CONTENT -->
         <main class="flex-1 p-6">

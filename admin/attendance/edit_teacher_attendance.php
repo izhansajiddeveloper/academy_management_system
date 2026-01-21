@@ -69,31 +69,7 @@ $attendance_result = mysqli_query($conn, $attendance_query);
             font-family: 'Inter', sans-serif;
         }
 
-        .sidebar {
-            background: #111827;
-            color: white;
-        }
-
-        .sidebar-link {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 16px;
-            border-radius: 6px;
-            transition: all 0.2s ease;
-            color: #d1d5db;
-            text-decoration: none;
-        }
-
-        .sidebar-link:hover {
-            background: #374151;
-            color: white;
-        }
-
-        .sidebar-link.active {
-            background: #3b82f6;
-            color: white;
-        }
+        
 
         .form-container {
             background: white;
@@ -156,38 +132,7 @@ $attendance_result = mysqli_query($conn, $attendance_query);
 
     <div class="flex">
         <!-- SIDEBAR -->
-        <aside class="w-64 sidebar h-screen sticky top-0">
-            <div class="p-4 border-b border-gray-700">
-                <h2 class="text-xl font-bold text-white">🎓 EduSkill Pro</h2>
-                <p class="text-xs text-gray-300 mt-1">Admin Panel</p>
-            </div>
-
-            <nav class="p-3 space-y-1">
-                <a href="../dashboard.php" class="sidebar-link">
-                    <i class="fas fa-chart-line"></i> Dashboard
-                </a>
-
-                <div class="mt-4">
-                    <p class="text-xs text-gray-400 px-3 mb-2 uppercase tracking-wider">Attendance</p>
-                    <a href="attendance.php" class="sidebar-link">
-                        <i class="fas fa-clipboard-check"></i> Attendance Home
-                    </a>
-                </div>
-
-                <div class="mt-4">
-                    <p class="text-xs text-gray-400 px-3 mb-2 uppercase tracking-wider">Teacher Attendance</p>
-                    <a href="take_teacher_attendance.php" class="sidebar-link">
-                        <i class="fas fa-plus"></i> Take Teacher Attendance
-                    </a>
-                    <a href="edit_teacher_attendance.php" class="sidebar-link active">
-                        <i class="fas fa-edit"></i> Edit Teacher Attendance
-                    </a>
-                    <a href="view_teacher_attendance.php" class="sidebar-link">
-                        <i class="fas fa-eye"></i> View Teacher Attendance
-                    </a>
-                </div>
-            </nav>
-        </aside>
+        <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
         <!-- MAIN CONTENT -->
         <main class="flex-1 p-4">

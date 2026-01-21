@@ -101,19 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             min-height: 100vh;
         }
 
-        .sidebar-link {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px;
-            border-radius: 10px;
-            transition: all 0.3s ease;
-        }
-
-        .sidebar-link:hover {
-            background: #f1f5f9;
-            color: var(--primary);
-        }
+       
 
         .form-card {
             background: white;
@@ -218,33 +206,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <div class="flex min-h-screen">
 
         <!-- SIDEBAR (Same as before) -->
-        <aside class="w-64 bg-white shadow-xl sticky top-0 h-screen">
-            <!-- Same sidebar code as teachers.php -->
-            <div class="p-6 text-center border-b">
-                <h2 class="text-2xl font-bold text-[var(--primary)]">
-                    🎓 EduSkill Pro
-                </h2>
-                <p class="text-sm text-gray-500 mt-1">Admin Panel</p>
-            </div>
-
-            <nav class="p-4 space-y-2 text-gray-700">
-                <a href="../dashboard.php" class="sidebar-link">
-                    <i class="fas fa-chart-line"></i> Dashboard
-                </a>
-                <a href="teachers.php" class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 text-gray-700">
-                    <i class="fas fa-users text-[var(--primary)]"></i> Users
-                </a>
-                <div class="ml-8 space-y-1">
-                    <a href="students.php" class="flex items-center gap-2 p-2 rounded-lg hover:bg-blue-50 transition-colors">
-                        <i class="fas fa-graduation-cap text-sm"></i> Students
-                    </a>
-                    <a href="teachers.php" class="flex items-center gap-2 p-2 rounded-lg bg-blue-100 text-[var(--primary)] font-semibold">
-                        <i class="fas fa-chalkboard-teacher text-sm"></i> Teachers
-                    </a>
-                </div>
-                <!-- Other menu items... -->
-            </nav>
-        </aside>
+         <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
         <!-- MAIN CONTENT -->
         <main class="flex-1 p-6">

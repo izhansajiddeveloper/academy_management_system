@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../config/db.php';
 
+
 // Get today's date
 $today = date('Y-m-d');
 
@@ -11,7 +12,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $attendance_data = $_POST['attendance'];
 
     // Get marked_by (admin user id from session)
-    session_start();
     $marked_by = $_SESSION['user_id'] ?? 1; // Default to admin id 1
 
     foreach ($attendance_data as $enrollment_id => $status) {
@@ -34,19 +34,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $insert_query = "INSERT INTO student_attendance (enrollment_id, student_id, skill_id, session_id, batch_id, attendance_date, attendance_status, marked_by, remarks, status, created_at) VALUES ($enrollment_id, $student_id, $skill_id, $session_id, $batch_id, '$attendance_date', '$status', $marked_by, '$remarks', 'active', NOW())";
             mysqli_query($conn, $insert_query);
         }
+
+        // Calculate and update attendance percentage for this student
+        updateAttendancePercentage($conn, $student_id, $batch_id, $skill_id, $session_id);
     }
 
-    header("Location: take_student_attendance.php?success=1");
+    header("Location: take_student_attendance.php?success=1&batch_id=$batch_id");
     exit;
 }
 
+// Function to calculate attendance percentage
+function updateAttendancePercentage($conn, $student_id, $batch_id, $skill_id, $session_id)
+{
+    // Get total days (all attendance records for this student in this batch)
+    $total_query = "SELECT COUNT(*) as total FROM student_attendance 
+                    WHERE student_id = $student_id 
+                    AND batch_id = $batch_id 
+                    AND skill_id = $skill_id 
+                    AND session_id = $session_id 
+                    AND status = 'active'";
+    $total_result = mysqli_query($conn, $total_query);
+    $total_row = mysqli_fetch_assoc($total_result);
+    $total_days = $total_row['total'];
+
+    // Get present days
+    $present_query = "SELECT COUNT(*) as present FROM student_attendance 
+                      WHERE student_id = $student_id 
+                      AND batch_id = $batch_id 
+                      AND skill_id = $skill_id 
+                      AND session_id = $session_id 
+                      AND attendance_status = 'present' 
+                      AND status = 'active'";
+    $present_result = mysqli_query($conn, $present_query);
+    $present_row = mysqli_fetch_assoc($present_result);
+    $present_days = $present_row['present'];
+
+    // Calculate percentage
+    $percentage = ($total_days > 0) ? round(($present_days / $total_days) * 100, 2) : 0;
+
+    // Update percentage in all records for this student (or you can update a separate table)
+    $update_percentage_query = "UPDATE student_attendance 
+                               SET attendance_percentage = $percentage 
+                               WHERE student_id = $student_id 
+                               AND batch_id = $batch_id 
+                               AND skill_id = $skill_id 
+                               AND session_id = $session_id 
+                               AND status = 'active'";
+    mysqli_query($conn, $update_percentage_query);
+
+    return $percentage;
+}
+
 // Fetch all active batches for selection
-$batches_query = "SELECT b.*, s.skill_name, se.session_name FROM batches b JOIN skills s ON b.skill_id = s.id JOIN sessions se ON b.session_id = se.id WHERE b.status='active' ORDER BY b.batch_name";
+$batches_query = "SELECT b.*, s.skill_name, se.session_name FROM batches b 
+                  JOIN skills s ON b.skill_id = s.id 
+                  JOIN sessions se ON b.session_id = se.id 
+                  WHERE b.status='active' 
+                  ORDER BY b.batch_name";
 $batches_result = mysqli_query($conn, $batches_query);
 
 // If batch is selected, fetch students
 $students = [];
 $selected_batch = null;
+$attendance_percentages = [];
+
 if (isset($_GET['batch_id'])) {
     $batch_id = intval($_GET['batch_id']);
     $selected_batch_query = "SELECT * FROM batches WHERE id = $batch_id";
@@ -66,6 +117,19 @@ if (isset($_GET['batch_id'])) {
 
     while ($row = mysqli_fetch_assoc($students_result)) {
         $students[] = $row;
+
+        // Get attendance percentage for each student
+        $percentage_query = "SELECT attendance_percentage FROM student_attendance 
+                            WHERE student_id = {$row['student_id']} 
+                            AND batch_id = $batch_id 
+                            AND skill_id = {$row['skill_id']} 
+                            AND session_id = {$row['session_id']} 
+                            AND status = 'active' 
+                            ORDER BY attendance_date DESC LIMIT 1";
+        $percentage_result = mysqli_query($conn, $percentage_query);
+        $percentage_row = mysqli_fetch_assoc($percentage_result);
+
+        $attendance_percentages[$row['student_id']] = $percentage_row['attendance_percentage'] ?? 0;
     }
 }
 ?>
@@ -83,32 +147,7 @@ if (isset($_GET['batch_id'])) {
             font-family: 'Inter', sans-serif;
         }
 
-        .sidebar {
-            background: #111827;
-            color: white;
-        }
-
-        .sidebar-link {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 16px;
-            border-radius: 6px;
-            transition: all 0.2s ease;
-            color: #d1d5db;
-            text-decoration: none;
-        }
-
-        .sidebar-link:hover {
-            background: #374151;
-            color: white;
-        }
-
-        .sidebar-link.active {
-            background: #3b82f6;
-            color: white;
-        }
-
+        
         .form-container {
             background: white;
             border-radius: 12px;
@@ -161,9 +200,39 @@ if (isset($_GET['batch_id'])) {
             color: #991b1b;
         }
 
+        .badge-leave {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+
         .badge-late {
             background: #fef3c7;
             color: #92400e;
+        }
+
+        .percentage-badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            min-width: 60px;
+            text-align: center;
+            display: inline-block;
+        }
+
+        .percentage-high {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .percentage-medium {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .percentage-low {
+            background: #fee2e2;
+            color: #991b1b;
         }
 
         .search-box {
@@ -179,6 +248,42 @@ if (isset($_GET['batch_id'])) {
             outline: none;
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
+
+        .radio-group {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+        }
+
+        .radio-option input[type="radio"] {
+            margin: 0;
+            cursor: pointer;
+        }
+
+        .radio-option label {
+            cursor: pointer;
+            font-size: 14px;
+            color: #4b5563;
+        }
+
+        .radio-present {
+            color: #065f46;
+        }
+
+        .radio-absent {
+            color: #991b1b;
+        }
+
+        .radio-leave {
+            color: #3730a3;
+        }
     </style>
 </head>
 
@@ -188,42 +293,7 @@ if (isset($_GET['batch_id'])) {
 
     <div class="flex">
         <!-- SIDEBAR -->
-        <aside class="w-64 sidebar h-screen sticky top-0">
-            <div class="p-4 border-b border-gray-700">
-                <h2 class="text-xl font-bold text-white">🎓 EduSkill Pro</h2>
-                <p class="text-xs text-gray-300 mt-1">Admin Panel</p>
-            </div>
-
-            <nav class="p-3 space-y-1">
-                <a href="../dashboard.php" class="sidebar-link">
-                    <i class="fas fa-chart-line"></i> Dashboard
-                </a>
-
-                <div class="mt-4">
-                    <p class="text-xs text-gray-400 px-3 mb-2 uppercase tracking-wider">Attendance</p>
-                    <a href="attendance.php" class="sidebar-link">
-                        <i class="fas fa-clipboard-check"></i> Attendance Home
-                    </a>
-                    <a href="take_student_attendance.php" class="sidebar-link active">
-                        <i class="fas fa-plus"></i> Take Student Attendance
-                    </a>
-                    <a href="edit_student_attendance.php" class="sidebar-link">
-                        <i class="fas fa-edit"></i> Edit Student Attendance
-                    </a>
-                    <a href="view_student_attendance.php" class="sidebar-link">
-                        <i class="fas fa-eye"></i> View Student Attendance
-                    </a>
-                </div>
-
-                <div class="mt-4">
-                    <p class="text-xs text-gray-400 px-3 mb-2 uppercase tracking-wider">Teacher Attendance</p>
-                    <a href="take_teacher_attendance.php" class="sidebar-link">
-                        <i class="fas fa-plus"></i> Take Teacher Attendance
-                    </a>
-                </div>
-            </nav>
-        </aside>
-
+         <?php include __DIR__ . '/../includes/sidebar.php'; ?>
         <!-- MAIN CONTENT -->
         <main class="flex-1 p-4">
             <!-- Header -->
@@ -264,7 +334,10 @@ if (isset($_GET['batch_id'])) {
                         <label class="block text-sm font-medium text-gray-700 mb-2">Select Batch</label>
                         <select name="batch_id" class="form-select" onchange="this.form.submit()" required>
                             <option value="">-- Select Batch --</option>
-                            <?php while ($batch = mysqli_fetch_assoc($batches_result)): ?>
+                            <?php
+                            // Reset pointer for batches result
+                            mysqli_data_seek($batches_result, 0);
+                            while ($batch = mysqli_fetch_assoc($batches_result)): ?>
                                 <option value="<?= $batch['id'] ?>" <?= isset($_GET['batch_id']) && $_GET['batch_id'] == $batch['id'] ? 'selected' : '' ?>>
                                     <?= htmlspecialchars($batch['batch_name']) ?> - <?= htmlspecialchars($batch['skill_name']) ?> (<?= htmlspecialchars($batch['session_name']) ?>)
                                 </option>
@@ -305,6 +378,7 @@ if (isset($_GET['batch_id'])) {
                                         <th>Student Code</th>
                                         <th>Student Name</th>
                                         <th>Skill</th>
+                                        <th>Attendance %</th>
                                         <th>Attendance Status</th>
                                         <th>Remarks</th>
                                     </tr>
@@ -315,23 +389,67 @@ if (isset($_GET['batch_id'])) {
                                         $existing_query = "SELECT * FROM student_attendance WHERE enrollment_id = {$student['id']} AND attendance_date = '$today' AND status='active'";
                                         $existing_result = mysqli_query($conn, $existing_query);
                                         $existing = mysqli_fetch_assoc($existing_result);
+
+                                        // Get attendance percentage
+                                        $percentage = $attendance_percentages[$student['student_id']] ?? 0;
+                                        $percentage_class = 'percentage-low';
+                                        if ($percentage >= 80) {
+                                            $percentage_class = 'percentage-high';
+                                        } elseif ($percentage >= 60) {
+                                            $percentage_class = 'percentage-medium';
+                                        }
                                     ?>
                                         <tr class="student-row">
-                                            <td><?= $index + 1 ?></td>
+                                            <td class="font-medium"><?= $index + 1 ?></td>
                                             <td>
                                                 <?= $student['student_code'] ?>
                                                 <input type="hidden" name="student_id[<?= $student['id'] ?>]" value="<?= $student['student_id'] ?>">
                                                 <input type="hidden" name="skill_id[<?= $student['id'] ?>]" value="<?= $student['skill_id'] ?>">
                                                 <input type="hidden" name="session_id[<?= $student['id'] ?>]" value="<?= $student['session_id'] ?>">
                                             </td>
-                                            <td class="student-name"><?= htmlspecialchars($student['student_name']) ?></td>
+                                            <td class="student-name font-medium"><?= htmlspecialchars($student['student_name']) ?></td>
                                             <td><?= htmlspecialchars($student['skill_name']) ?></td>
                                             <td>
-                                                <select name="attendance[<?= $student['id'] ?>]" class="form-select" style="width: auto;">
-                                                    <option value="present" <?= ($existing['attendance_status'] ?? 'present') == 'present' ? 'selected' : '' ?>>Present</option>
-                                                    <option value="absent" <?= ($existing['attendance_status'] ?? '') == 'absent' ? 'selected' : '' ?>>Absent</option>
-                                                    <option value="late" <?= ($existing['attendance_status'] ?? '') == 'late' ? 'selected' : '' ?>>Late</option>
-                                                </select>
+                                                <span class="percentage-badge <?= $percentage_class ?>">
+                                                    <?= $percentage ?>%
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <div class="radio-group">
+                                                    <div class="radio-option">
+                                                        <input type="radio"
+                                                            id="present_<?= $student['id'] ?>"
+                                                            name="attendance[<?= $student['id'] ?>]"
+                                                            value="present"
+                                                            <?= ($existing['attendance_status'] ?? 'present') == 'present' ? 'checked' : '' ?>
+                                                            class="text-green-600">
+                                                        <label for="present_<?= $student['id'] ?>" class="radio-present">
+                                                            <i class="fas fa-check-circle mr-1"></i> Present
+                                                        </label>
+                                                    </div>
+                                                    <div class="radio-option">
+                                                        <input type="radio"
+                                                            id="absent_<?= $student['id'] ?>"
+                                                            name="attendance[<?= $student['id'] ?>]"
+                                                            value="absent"
+                                                            <?= ($existing['attendance_status'] ?? '') == 'absent' ? 'checked' : '' ?>
+                                                            class="text-red-600">
+                                                        <label for="absent_<?= $student['id'] ?>" class="radio-absent">
+                                                            <i class="fas fa-times-circle mr-1"></i> Absent
+                                                        </label>
+                                                    </div>
+                                                    <div class="radio-option">
+                                                        <input type="radio"
+                                                            id="leave_<?= $student['id'] ?>"
+                                                            name="attendance[<?= $student['id'] ?>]"
+                                                            value="leave"
+                                                            <?= ($existing['attendance_status'] ?? '') == 'leave' ? 'checked' : '' ?>
+                                                            class="text-indigo-600">
+                                                        <label for="leave_<?= $student['id'] ?>" class="radio-leave">
+                                                            <i class="fas fa-umbrella-beach mr-1"></i> Leave
+                                                        </label>
+                                                    </div>
+                                                </div>
                                             </td>
                                             <td>
                                                 <input type="text"
@@ -346,13 +464,22 @@ if (isset($_GET['batch_id'])) {
                             </table>
                         </div>
 
-                        <div class="flex justify-end gap-3 mt-6 pt-6 border-t border-gray-200">
-                            <a href="attendance.php" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded text-sm font-medium">
-                                Cancel
-                            </a>
-                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded text-sm font-medium">
-                                <i class="fas fa-save mr-2"></i> Save Attendance
-                            </button>
+                        <div class="flex justify-between items-center mt-6 pt-6 border-t border-gray-200">
+                            <div class="text-sm text-gray-500">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                <strong>Color Legend:</strong>
+                                <span class="badge-present ml-2">Present</span>
+                                <span class="badge-absent ml-2">Absent</span>
+                                <span class="badge-leave ml-2">Leave</span>
+                            </div>
+                            <div class="flex gap-3">
+                                <a href="attendance.php" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded text-sm font-medium">
+                                    Cancel
+                                </a>
+                                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded text-sm font-medium">
+                                    <i class="fas fa-save mr-2"></i> Save Attendance
+                                </button>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -385,6 +512,14 @@ if (isset($_GET['batch_id'])) {
                 } else {
                     row.style.display = 'none';
                 }
+            });
+        });
+
+        // Auto-save functionality (optional)
+        document.querySelectorAll('input[type="radio"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                // You can add auto-save functionality here if needed
+                console.log('Attendance changed:', this.name, this.value);
             });
         });
     </script>

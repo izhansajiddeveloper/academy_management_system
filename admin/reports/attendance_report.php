@@ -195,31 +195,8 @@ $absent_percentage = $total_attendance > 0 ? round(($absent_count / $total_atten
             font-family: 'Inter', sans-serif;
         }
 
-        .sidebar {
-            background: #111827;
-            color: white;
-        }
-
-        .sidebar-link {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 16px;
-            border-radius: 6px;
-            transition: all 0.2s ease;
-            color: #d1d5db;
-            text-decoration: none;
-        }
-
-        .sidebar-link:hover {
-            background: #374151;
-            color: white;
-        }
-
-        .sidebar-link.active {
-            background: #3b82f6;
-            color: white;
-        }
+      
+         
 
         .card {
             background: white;
@@ -335,55 +312,7 @@ $absent_percentage = $total_attendance > 0 ? round(($absent_count / $total_atten
 
     <div class="flex">
         <!-- SIDEBAR -->
-        <aside class="w-64 sidebar h-screen sticky top-0">
-            <div class="p-4 border-b border-gray-700">
-                <h2 class="text-xl font-bold text-white">🎓 EduSkill Pro</h2>
-                <p class="text-xs text-gray-300 mt-1">Admin Panel</p>
-            </div>
-
-            <nav class="p-3 space-y-1">
-                <a href="../dashboard.php" class="sidebar-link">
-                    <i class="fas fa-chart-line"></i> Dashboard
-                </a>
-
-                <div class="mt-4">
-                    <p class="text-xs text-gray-400 px-3 mb-2 uppercase tracking-wider">Attendance</p>
-                    <a href="../attendance/student_attendance.php" class="sidebar-link">
-                        <i class="fas fa-user-check"></i> Student Attendance
-                    </a>
-                    <a href="../attendance/teacher_attendance.php" class="sidebar-link">
-                        <i class="fas fa-chalkboard-teacher"></i> Teacher Attendance
-                    </a>
-                    <a href="../reports/attendance_report.php" class="sidebar-link active">
-                        <i class="fas fa-chart-bar"></i> Attendance Reports
-                    </a>
-                </div>
-
-                <div class="mt-4">
-                    <p class="text-xs text-gray-400 px-3 mb-2 uppercase tracking-wider">Financial</p>
-                    <a href="../fees/fee_collection.php" class="sidebar-link">
-                        <i class="fas fa-cash-register"></i> Fee Collection
-                    </a>
-                    <a href="../profit/profit.php" class="sidebar-link">
-                        <i class="fas fa-chart-line"></i> Profit Management
-                    </a>
-                </div>
-
-                <div class="mt-4">
-                    <p class="text-xs text-gray-400 px-3 mb-2 uppercase tracking-wider">Student Management</p>
-                    <a href="../enrollments/enrollment_list.php" class="sidebar-link">
-                        <i class="fas fa-user-check"></i> Enrollments
-                    </a>
-                </div>
-
-                <div class="mt-4">
-                    <p class="text-xs text-gray-400 px-3 mb-2 uppercase tracking-wider">Reports</p>
-                    <a href="../reports/student_report.php" class="sidebar-link">
-                        <i class="fas fa-file-alt"></i> Student Reports
-                    </a>
-                </div>
-            </nav>
-        </aside>
+        <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
         <!-- MAIN CONTENT -->
         <main class="flex-1 p-6">
@@ -670,7 +599,7 @@ $absent_percentage = $total_attendance > 0 ? round(($absent_count / $total_atten
                                         <tr>
                                             <td class="py-3 px-4">
                                                 <div class="font-medium text-gray-900"><?= htmlspecialchars($student['student_name']) ?></div>
-                                                
+
                                             </td>
                                             <td class="py-3 px-4">
                                                 <span class="text-sm text-gray-700"><?= htmlspecialchars($student['batch_name']) ?></span>
@@ -715,7 +644,7 @@ $absent_percentage = $total_attendance > 0 ? round(($absent_count / $total_atten
                                                 <div class="font-medium text-gray-900"><?= htmlspecialchars($teacher['teacher_name']) ?></div>
                                             </td>
                                             <td class="py-3 px-4">
-                                                
+
                                                 <div class="text-xs text-gray-500"><?= $teacher['phone'] ?></div>
                                             </td>
                                             <td class="py-3 px-4">

@@ -62,33 +62,6 @@ unset($_SESSION['success_message']);
             font-family: 'Inter', sans-serif;
         }
 
-        .sidebar {
-            background: #111827;
-            /* Dark sidebar */
-            color: white;
-        }
-
-        .sidebar-link {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 16px;
-            border-radius: 6px;
-            transition: all 0.2s ease;
-            color: #d1d5db;
-            text-decoration: none;
-        }
-
-        .sidebar-link:hover {
-            background: #374151;
-            color: white;
-        }
-
-        .sidebar-link.active {
-            background: #3b82f6;
-            color: white;
-        }
-
         .action-btn {
             padding: 4px 10px;
             border-radius: 4px;
@@ -120,66 +93,11 @@ unset($_SESSION['success_message']);
     <?php include __DIR__ . '/../../includes/navbar.php'; ?>
 
     <div class="flex">
-        <!-- SIDEBAR -->
-        <aside class="w-64 sidebar h-screen sticky top-0">
-            <div class="p-4 border-b border-gray-700">
-                <h2 class="text-xl font-bold text-white">🎓 EduSkill Pro</h2>
-                <p class="text-xs text-gray-300 mt-1">Admin Panel</p>
-            </div>
-
-            <nav class="p-3 space-y-1">
-                <a href="../dashboard.php" class="sidebar-link">
-                    <i class="fas fa-chart-line"></i> Dashboard
-                </a>
-
-                <div class="mt-4">
-                    <p class="text-xs text-gray-400 px-3 mb-2 uppercase tracking-wider">Users</p>
-                    <a href="students.php" class="sidebar-link">
-                        <i class="fas fa-user-graduate"></i> Students
-                    </a>
-                    <a href="teachers.php" class="sidebar-link">
-                        <i class="fas fa-chalkboard-teacher"></i> Teachers
-                    </a>
-                    <a href="inactive_users.php" class="sidebar-link active">
-                        <i class="fas fa-user-slash"></i> Inactive Users
-                        <?php if (($student_count + $teacher_count) > 0): ?>
-                            <span class="ml-auto text-xs bg-red-500 text-white px-2 py-1 rounded-full">
-                                <?php echo $student_count + $teacher_count; ?>
-                            </span>
-                        <?php endif; ?>
-                    </a>
-                </div>
-
-                <div class="mt-4">
-                    <p class="text-xs text-gray-400 px-3 mb-2 uppercase tracking-wider">Academic</p>
-                    <a href="../skills/skills.php" class="sidebar-link">
-                        <i class="fas fa-book-open"></i> Skills
-                    </a>
-                    <a href="../sessions/sessions.php" class="sidebar-link">
-                        <i class="fas fa-calendar-alt"></i> Sessions
-                    </a>
-                    <a href="../batches/batches.php" class="sidebar-link">
-                        <i class="fas fa-layer-group"></i> Batches
-                    </a>
-                </div>
-
-                <div class="mt-4">
-                    <p class="text-xs text-gray-400 px-3 mb-2 uppercase tracking-wider">Operations</p>
-                    <a href="../enrollments/enrollment_list.php" class="sidebar-link">
-                        <i class="fas fa-user-check"></i> Enrollments
-                    </a>
-                    <a href="../fees/fee_collection.php" class="sidebar-link">
-                        <i class="fas fa-money-bill-wave"></i> Fees
-                    </a>
-                    <a href="../reports/student_report.php" class="sidebar-link">
-                        <i class="fas fa-file-alt"></i> Reports
-                    </a>
-                </div>
-            </nav>
-        </aside>
+        <!-- SIDEBAR - INCLUDED FROM EXTERNAL FILE -->
+        <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
         <!-- MAIN CONTENT -->
-        <main class="flex-1 p-4">
+        <main class="flex-1 p-6">
             <!-- Header -->
             <div class="flex justify-between items-center mb-6">
                 <div>
@@ -196,7 +114,7 @@ unset($_SESSION['success_message']);
                         </div>
                         <input type="text"
                             placeholder="Search inactive users..."
-                            class="pl-9 pr-3 py-2 rounded border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-56 text-sm"
+                            class="pl-9 pr-3 py-2 rounded border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-56 text-sm transition-colors"
                             id="searchInput">
                     </div>
                 </div>
@@ -204,9 +122,18 @@ unset($_SESSION['success_message']);
 
             <!-- Success Message -->
             <?php if ($success_message): ?>
-                <div class="mb-4 p-3 bg-green-50 border border-green-200 rounded flex items-center gap-2 text-sm">
-                    <i class="fas fa-check-circle text-green-600"></i>
-                    <span class="text-green-700"><?php echo $success_message; ?></span>
+                <div class="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-check-circle text-green-400 text-lg"></i>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-green-800">Success</h3>
+                            <div class="mt-2 text-sm text-green-700">
+                                <p><?php echo $success_message; ?></p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             <?php endif; ?>
 
@@ -223,13 +150,13 @@ unset($_SESSION['success_message']);
             </div>
 
             <!-- Tabs -->
-            <div class="flex gap-2 mb-4">
+            <div class="flex gap-2 mb-6">
                 <a href="?tab=students"
-                    class="px-4 py-2 rounded text-sm font-medium <?php echo $tab === 'students' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'; ?>">
+                    class="px-4 py-2 rounded text-sm font-medium transition-colors <?php echo $tab === 'students' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'; ?>">
                     Students
                 </a>
                 <a href="?tab=teachers"
-                    class="px-4 py-2 rounded text-sm font-medium <?php echo $tab === 'teachers' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'; ?>">
+                    class="px-4 py-2 rounded text-sm font-medium transition-colors <?php echo $tab === 'teachers' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'; ?>">
                     Teachers
                 </a>
             </div>

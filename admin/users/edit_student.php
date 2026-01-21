@@ -79,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 
- 
+
 ?>
 
 <!DOCTYPE html>
@@ -110,19 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             min-height: 100vh;
         }
 
-        .sidebar-link {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px;
-            border-radius: 10px;
-            transition: all 0.3s ease;
-        }
 
-        .sidebar-link:hover {
-            background: #f1f5f9;
-            color: var(--primary);
-        }
 
         .form-card {
             background: white;
@@ -296,97 +284,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <div class="flex min-h-screen">
 
         <!-- SIDEBAR -->
-        <aside class="w-64 bg-white shadow-xl sticky top-0 h-screen">
-            <div class="p-6 text-center border-b">
-                <h2 class="text-2xl font-bold text-[var(--primary)]">
-                    🎓 EduSkill Pro
-                </h2>
-                <p class="text-sm text-gray-500 mt-1">Admin Panel</p>
-            </div>
-
-            <nav class="p-4 space-y-2 text-gray-700">
-                <!-- Dashboard -->
-                <a href="../dashboard.php"
-                    class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 text-gray-700">
-                    <i class="fas fa-chart-line text-[var(--primary)]"></i> Dashboard
-                </a>
-
-                <!-- USERS (Active) -->
-                <a href="../users/students.php"
-                    class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 text-gray-700">
-                    <i class="fas fa-users text-[var(--primary)]"></i> Users
-                </a>
-
-                <!-- Users Submenu -->
-                <div class="ml-8 space-y-1">
-                    <a href="students.php"
-                        class="flex items-center gap-2 p-2 rounded-lg bg-blue-100 text-[var(--primary)] font-semibold">
-                        <i class="fas fa-graduation-cap text-sm"></i>
-                        <span>Students</span>
-                    </a>
-                    <a href="../users/teachers.php"
-                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-blue-50 transition-colors">
-                        <i class="fas fa-chalkboard-teacher text-sm"></i>
-                        <span>Teachers</span>
-                    </a>
-                    <a href="../users/inactive_users.php"
-                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-blue-50 transition-colors">
-                        <i class="fas fa-user-slash text-sm"></i>
-                        <span>Inactive Users</span>
-                    </a>
-                </div>
-
-                <!-- SKILLS / COURSES -->
-                <a href="../skills/skills.php" class="sidebar-link">
-                    <i class="fas fa-book-open"></i> Skills / Courses
-                </a>
-
-                <!-- SESSIONS -->
-                <a href="../sessions/sessions.php" class="sidebar-link">
-                    <i class="fas fa-calendar-alt"></i> Sessions
-                </a>
-
-                <!-- BATCHES -->
-                <a href="../batches/batches.php" class="sidebar-link">
-                    <i class="fas fa-layer-group"></i> Batches
-                </a>
-
-                <!-- ENROLLMENTS -->
-                <a href="../enrollments/enrollment_list.php" class="sidebar-link">
-                    <i class="fas fa-user-check"></i> Enrollments
-                </a>
-
-                <!-- FEES -->
-                <a href="../fees/fee_collection.php" class="sidebar-link">
-                    <i class="fas fa-money-bill-wave"></i> Fees
-                </a>
-
-                <!-- EXPENSES -->
-                <a href="../expenses/expenses.php" class="sidebar-link">
-                    <i class="fas fa-wallet"></i> Expenses
-                </a>
-
-                <!-- REPORTS -->
-                <a href="../reports/student_report.php" class="sidebar-link">
-                    <i class="fas fa-file-alt"></i> Reports
-                </a>
-            </nav>
-
-            <!-- Quick Actions -->
-            <div class="mt-8 p-4 border-t border-gray-100">
-                <h4 class="font-semibold text-gray-700 mb-3 text-sm uppercase tracking-wider">Quick Actions</h4>
-                <div class="space-y-2">
-                    <a href="add_student.php" class="flex items-center gap-2 text-sm p-2 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 transition-colors">
-                        <i class="fas fa-user-plus"></i>
-                        <span>Add Student</span>
-                    </a>
-                    <a href="students.php" class="flex items-center gap-2 text-sm p-2 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors">
-                        <i class="fas fa-list"></i>
-                        <span>View All</span>
-                    </a>
-                </div>
-            </div>
-        </aside>
+        <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
         <!-- MAIN CONTENT -->
         <main class="flex-1 p-6">
@@ -645,7 +543,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 <i class="fas fa-save"></i> Update Student
                             </button>
 
-                           
+
                         </div>
 
                     </div>

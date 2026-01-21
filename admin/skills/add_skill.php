@@ -69,14 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             min-height: 100vh;
         }
 
-        .sidebar-link {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px;
-            border-radius: 10px;
-            transition: all 0.3s ease;
-        }
+       
 
         .form-card {
             background: white;
@@ -199,33 +192,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <div class="flex min-h-screen">
 
         <!-- SIDEBAR (Same as before) -->
-        <aside class="w-64 bg-white shadow-xl sticky top-0 h-screen">
-            <div class="p-6 text-center border-b">
-                <h2 class="text-2xl font-bold text-[var(--primary)]">
-                    🎓 EduSkill Pro
-                </h2>
-                <p class="text-sm text-gray-500 mt-1">Admin Panel</p>
-            </div>
-
-            <nav class="p-4 space-y-2 text-gray-700">
-                <a href="../dashboard.php" class="sidebar-link">
-                    <i class="fas fa-chart-line"></i> Dashboard
-                </a>
-                <a href="skills.php" class="flex items-center gap-3 p-3 rounded-lg bg-blue-50 text-[var(--primary)] font-semibold">
-                    <i class="fas fa-book-open text-[var(--primary)]"></i> Skills / Courses
-                </a>
-                <div class="ml-8 space-y-1">
-                    <a href="skills.php" class="flex items-center gap-2 p-2 rounded-lg hover:bg-blue-50 transition-colors">
-                        <i class="fas fa-list text-sm"></i> All Skills
-                    </a>
-                    <a href="add_skill.php" class="flex items-center gap-2 p-2 rounded-lg bg-blue-100 text-[var(--primary)] font-semibold">
-                        <i class="fas fa-plus text-sm"></i> Add Skill
-                    </a>
-                </div>
-                <!-- Other menu items... -->
-            </nav>
-        </aside>
-
+       <?php include __DIR__ . '/../includes/sidebar.php'; ?>
         <!-- MAIN CONTENT -->
         <main class="flex-1 p-6">
             <!-- Header -->

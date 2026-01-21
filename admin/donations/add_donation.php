@@ -66,32 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             font-family: 'Inter', sans-serif;
         }
 
-        .sidebar {
-            background: #111827;
-            color: white;
-        }
-
-        .sidebar-link {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 16px;
-            border-radius: 6px;
-            transition: all 0.2s ease;
-            color: #d1d5db;
-            text-decoration: none;
-        }
-
-        .sidebar-link:hover {
-            background: #374151;
-            color: white;
-        }
-
-        .sidebar-link.active {
-            background: #3b82f6;
-            color: white;
-        }
-
+        
         .form-container {
             background: white;
             border-radius: 12px;
@@ -200,7 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     <div class="flex">
         <!-- SIDEBAR -->
-        <aside class="w-64 sidebar h-screen sticky top-0">
+         <?php include __DIR__ . '/../includes/sidebar.php'; ?><aside class="w-64 sidebar h-screen sticky top-0">
             <div class="p-4 border-b border-gray-700">
                 <h2 class="text-xl font-bold text-white">🎓 EduSkill Pro</h2>
                 <p class="text-xs text-gray-300 mt-1">Admin Panel</p>

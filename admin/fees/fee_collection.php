@@ -55,33 +55,10 @@ $collections = mysqli_query($conn, "
             font-family: 'Inter', sans-serif;
         }
 
-        .sidebar {
-            background: #111827;
+        
+           
             /* Dark sidebar */
-            color: white;
-        }
-
-        .sidebar-link {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 16px;
-            border-radius: 6px;
-            transition: all 0.2s ease;
-            color: #d1d5db;
-            text-decoration: none;
-        }
-
-        .sidebar-link:hover {
-            background: #374151;
-            color: white;
-        }
-
-        .sidebar-link.active {
-            background: #3b82f6;
-            color: white;
-        }
-
+            
         .action-btn {
             padding: 4px 10px;
             border-radius: 4px;
@@ -144,65 +121,7 @@ $collections = mysqli_query($conn, "
 
     <div class="flex">
         <!-- SIDEBAR -->
-        <aside class="w-64 sidebar h-screen sticky top-0">
-            <div class="p-4 border-b border-gray-700">
-                <h2 class="text-xl font-bold text-white">🎓 EduSkill Pro</h2>
-                <p class="text-xs text-gray-300 mt-1">Admin Panel</p>
-            </div>
-
-            <nav class="p-3 space-y-1">
-                <a href="../dashboard.php" class="sidebar-link">
-                    <i class="fas fa-chart-line"></i> Dashboard
-                </a>
-
-                <div class="mt-4">
-                    <p class="text-xs text-gray-400 px-3 mb-2 uppercase tracking-wider">Skills & Courses</p>
-                    <a href="../skills/skills.php" class="sidebar-link">
-                        <i class="fas fa-book-open"></i> Skills
-                    </a>
-                    <a href="../sessions/sessions.php" class="sidebar-link">
-                        <i class="fas fa-calendar-alt"></i> Sessions
-                    </a>
-                    <a href="../batches/batches.php" class="sidebar-link">
-                        <i class="fas fa-layer-group"></i> Batches
-                    </a>
-                </div>
-
-                <div class="mt-4">
-                    <p class="text-xs text-gray-400 px-3 mb-2 uppercase tracking-wider">Financial</p>
-                    <a href="fee_structures.php" class="sidebar-link">
-                        <i class="fas fa-calculator"></i> Fee Structures
-                    </a>
-                    <a href="fee_collection.php" class="sidebar-link active">
-                        <i class="fas fa-cash-register"></i> Fee Collection
-                    </a>
-                    <a href="fee_history.php" class="sidebar-link">
-                        <i class="fas fa-chart-pie"></i> Fee Reports
-                    </a>
-                </div>
-
-                <div class="mt-4">
-                    <p class="text-xs text-gray-400 px-3 mb-2 uppercase tracking-wider">Operations</p>
-                    <a href="../enrollments/enrollment_list.php" class="sidebar-link">
-                        <i class="fas fa-user-check"></i> Enrollments
-                    </a>
-                    <a href="../expenses/expenses.php" class="sidebar-link">
-                        <i class="fas fa-wallet"></i> Expenses
-                    </a>
-                    <a href="../reports/student_report.php" class="sidebar-link">
-                        <i class="fas fa-file-alt"></i> Reports
-                    </a>
-                </div>
-            </nav>
-
-            <div class="p-3 border-t border-gray-700 mt-auto">
-                <a href="collect_fee.php" class="w-full flex items-center justify-center gap-2 text-sm p-2 rounded bg-green-600 text-white hover:bg-green-700">
-                    <i class="fas fa-plus"></i>
-                    <span>Collect Fee</span>
-                </a>
-            </div>
-        </aside>
-
+        <?php include __DIR__ . '/../includes/sidebar.php'; ?>
         <!-- MAIN CONTENT -->
         <main class="flex-1 p-4">
             <!-- Header -->
