@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jan 22, 2026 at 08:34 AM
+-- Generation Time: Jan 22, 2026 at 10:29 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -20,6 +20,30 @@ SET time_zone = "+00:00";
 --
 -- Database: `academy_management_system`
 --
+
+DELIMITER $$
+--
+-- Procedures
+--
+CREATE DEFINER=`root`@`localhost` PROCEDURE `check_announcement_expiration` ()   BEGIN
+    -- Mark announcements as expired if end_date has passed
+    UPDATE announcements 
+    SET is_expired = 1, 
+        status = 'inactive'
+    WHERE end_date IS NOT NULL 
+        AND end_date < NOW() 
+        AND is_expired = 0;
+    
+    -- Mark announcements as expired if they're older than max duration
+    UPDATE announcements 
+    SET is_expired = 1, 
+        status = 'inactive'
+    WHERE end_date IS NULL 
+        AND created_at < DATE_SUB(NOW(), INTERVAL 30 DAY) 
+        AND is_expired = 0;
+END$$
+
+DELIMITER ;
 
 -- --------------------------------------------------------
 
@@ -73,6 +97,8 @@ CREATE TABLE `announcements` (
   `status` enum('active','inactive') DEFAULT 'active',
   `start_date` datetime DEFAULT NULL,
   `end_date` datetime DEFAULT NULL,
+  `expires_at` datetime DEFAULT NULL,
+  `is_expired` tinyint(1) DEFAULT 0,
   `priority` enum('low','medium','high','urgent') DEFAULT 'medium',
   `created_by` int(11) DEFAULT NULL,
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
@@ -82,8 +108,8 @@ CREATE TABLE `announcements` (
 -- Dumping data for table `announcements`
 --
 
-INSERT INTO `announcements` (`id`, `title`, `message`, `target_role`, `session_id`, `created_at`, `status`, `start_date`, `end_date`, `priority`, `created_by`, `updated_at`) VALUES
-(1, 'System Maintenance This Weekend', 'Our system will undergo scheduled maintenance on Saturday, Dec 15th from 10:00 PM to 2:00 AM. The portal will be temporarily unavailable during this time. Please complete any urgent tasks before the maintenance window.', 'all', 1, '2026-01-21 22:11:50', 'active', NULL, NULL, 'high', 1, '2026-01-22 07:00:35');
+INSERT INTO `announcements` (`id`, `title`, `message`, `target_role`, `session_id`, `created_at`, `status`, `start_date`, `end_date`, `expires_at`, `is_expired`, `priority`, `created_by`, `updated_at`) VALUES
+(1, 'System Maintenance This Weekend', 'Our system will undergo scheduled maintenance on Saturday, Dec 15th from 10:00 PM to 2:00 AM. The portal will be temporarily unavailable during this time. Please complete any urgent tasks before the maintenance window.', 'all', 1, '2026-01-21 22:11:50', 'active', '2026-01-22 01:20:34', '2026-02-01 01:20:44', '0000-00-00 00:00:00', 0, 'high', 1, '2026-01-22 09:29:43');
 
 -- --------------------------------------------------------
 
@@ -651,7 +677,10 @@ ALTER TABLE `activities`
 -- Indexes for table `announcements`
 --
 ALTER TABLE `announcements`
-  ADD PRIMARY KEY (`id`);
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_expires_at` (`expires_at`),
+  ADD KEY `idx_is_expired` (`is_expired`),
+  ADD KEY `idx_status_expired` (`status`,`is_expired`);
 
 --
 -- Indexes for table `batches`
@@ -920,6 +949,14 @@ ALTER TABLE `users`
 --
 ALTER TABLE `user_types`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+
+DELIMITER $$
+--
+-- Events
+--
+CREATE DEFINER=`root`@`localhost` EVENT `daily_announcement_expiry` ON SCHEDULE EVERY 1 DAY STARTS '2026-01-22 01:20:20' ON COMPLETION NOT PRESERVE ENABLE DO CALL check_announcement_expiration()$$
+
+DELIMITER ;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

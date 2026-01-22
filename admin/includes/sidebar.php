@@ -214,16 +214,18 @@
                 </button>
 
                 <div id="batchesMenu" class="ml-4 pl-6 border-l border-gray-700 space-y-1 <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['batches.php', 'add_batch.php', 'completed_batches.php', 'edit_batch.php', 'assign_teacher.php'])) ? '' : 'hidden'; ?>">
+
                     <a href="/academy_management_system/admin/batches/batches.php"
-                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/70 transition-colors text-sm <?php echo (basename($_SERVER['PHP_SELF']) == 'batches.php' || basename($_SERVER['PHP_SELF']) == 'edit_batch.php' || basename($_SERVER['PHP_SELF']) == 'assign_teacher.php') ? 'text-blue-300 bg-gray-800/50' : 'text-gray-300'; ?>">
-                        <div class="w-6 h-6 rounded flex items-center justify-center <?php echo (basename($_SERVER['PHP_SELF']) == 'batches.php' || basename($_SERVER['PHP_SELF']) == 'edit_batch.php' || basename($_SERVER['PHP_SELF']) == 'assign_teacher.php') ? 'bg-blue-500/20' : 'bg-gray-700'; ?>">
+                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/70 transition-colors text-sm <?php echo (basename($_SERVER['PHP_SELF']) == 'batches.php' || basename($_SERVER['PHP_SELF']) == 'edit_batch.php') ? 'text-blue-300 bg-gray-800/50' : 'text-gray-300'; ?>">
+                        <div class="w-6 h-6 rounded flex items-center justify-center <?php echo (basename($_SERVER['PHP_SELF']) == 'batches.php' || basename($_SERVER['PHP_SELF']) == 'edit_batch.php') ? 'bg-blue-500/20' : 'bg-gray-700'; ?>">
                             <i class="fas fa-folder-open text-xs"></i>
                         </div>
                         <span>Active Batches</span>
-                        <?php if (basename($_SERVER['PHP_SELF']) == 'batches.php' || basename($_SERVER['PHP_SELF']) == 'edit_batch.php' || basename($_SERVER['PHP_SELF']) == 'assign_teacher.php'): ?>
+                        <?php if (basename($_SERVER['PHP_SELF']) == 'batches.php' || basename($_SERVER['PHP_SELF']) == 'edit_batch.php'): ?>
                             <span class="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500"></span>
                         <?php endif; ?>
                     </a>
+
                     <a href="/academy_management_system/admin/batches/add_batch.php"
                         class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/70 transition-colors text-sm <?php echo (basename($_SERVER['PHP_SELF']) == 'add_batch.php') ? 'text-blue-300 bg-gray-800/50' : 'text-gray-300'; ?>">
                         <div class="w-6 h-6 rounded flex items-center justify-center <?php echo (basename($_SERVER['PHP_SELF']) == 'add_batch.php') ? 'bg-blue-500/20' : 'bg-gray-700'; ?>">
@@ -234,6 +236,7 @@
                             <span class="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500"></span>
                         <?php endif; ?>
                     </a>
+
                     <a href="/academy_management_system/admin/batches/completed_batches.php"
                         class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/70 transition-colors text-sm <?php echo (basename($_SERVER['PHP_SELF']) == 'completed_batches.php') ? 'text-blue-300 bg-gray-800/50' : 'text-gray-300'; ?>">
                         <div class="w-6 h-6 rounded flex items-center justify-center <?php echo (basename($_SERVER['PHP_SELF']) == 'completed_batches.php') ? 'bg-blue-500/20' : 'bg-gray-700'; ?>">
@@ -244,8 +247,12 @@
                             <span class="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500"></span>
                         <?php endif; ?>
                     </a>
+
+                  
+
                 </div>
             </div>
+
 
             <!-- Fees -->
             <div class="space-y-1">
