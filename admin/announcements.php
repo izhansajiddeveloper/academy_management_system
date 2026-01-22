@@ -762,7 +762,7 @@ $recent_announcements = mysqli_fetch_assoc($recent_announcements)['count'];
     </div>
 
     <!-- View Announcement Modal -->
-    <div id="viewModal" class="modal">
+    <div id="viewModal" class="modal bg-black/50 backdrop-blur-sm">
         <div class="modal-content">
             <div class="modal-header">
                 <h3 id="viewTitle" class="text-lg font-semibold text-gray-800">
