@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jan 21, 2026 at 11:34 AM
+-- Generation Time: Jan 22, 2026 at 08:34 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -24,16 +24,38 @@ SET time_zone = "+00:00";
 -- --------------------------------------------------------
 
 --
--- Table structure for table `activity_logs`
+-- Table structure for table `activities`
 --
 
-CREATE TABLE `activity_logs` (
+CREATE TABLE `activities` (
   `id` int(11) NOT NULL,
   `user_id` int(11) DEFAULT NULL,
-  `action` varchar(255) DEFAULT NULL,
-  `session_id` int(11) DEFAULT NULL,
-  `created_at` datetime DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `activity_type` varchar(50) NOT NULL COMMENT 'teacher_added, batch_created, student_enrolled, etc',
+  `title` varchar(255) NOT NULL,
+  `description` text DEFAULT NULL,
+  `icon` varchar(50) DEFAULT NULL,
+  `icon_color` varchar(20) DEFAULT '#3b82f6',
+  `related_id` int(11) DEFAULT NULL,
+  `related_type` varchar(50) DEFAULT NULL,
+  `metadata` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`metadata`)),
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `activities`
+--
+
+INSERT INTO `activities` (`id`, `user_id`, `activity_type`, `title`, `description`, `icon`, `icon_color`, `related_id`, `related_type`, `metadata`, `created_at`) VALUES
+(1, 1, 'teacher_added', 'New Teacher Added', 'Teacher: sajid28', 'user-plus', '#10b981', NULL, NULL, NULL, '2026-01-21 22:18:54'),
+(2, 1, 'batch_created', 'New Batch Created', 'Batch: Batch B for Web Development', 'calendar-plus', '#3b82f6', NULL, NULL, NULL, '2026-01-21 22:18:54'),
+(3, 1, 'batch_created', 'New Batch Created', 'Batch: Batch A for Web Development', 'calendar-plus', '#3b82f6', NULL, NULL, NULL, '2026-01-21 22:18:54'),
+(4, 1, 'student_enrolled', 'New Student Enrollment', 'ibad khan enrolled in Cyber Security', 'user-check', '#8b5cf6', NULL, NULL, NULL, '2026-01-21 21:18:54'),
+(5, 1, 'login', 'Admin Logged In', 'System administrator logged in', 'log-in', '#059669', NULL, NULL, NULL, '2026-01-22 05:18:54'),
+(6, 1, 'payment_received', 'Payment Received', 'Payment of ₹5,000 received from John Doe for Web Development course', 'credit-card', '#16a34a', NULL, NULL, NULL, '2026-01-22 03:18:54'),
+(7, 1, 'assignment_submitted', 'Assignment Submitted', 'Sarah submitted \"Web Development Project 1\"', 'file-text', '#9333ea', NULL, NULL, NULL, '2026-01-22 02:18:54'),
+(8, 1, 'course_created', 'New Course Created', 'Course: Data Science Fundamentals with Python', 'book-open', '#ea580c', NULL, NULL, NULL, '2026-01-22 01:18:54'),
+(9, 1, 'exam_scheduled', 'Exam Scheduled', 'Mid-term exam scheduled for Batch A (Web Development)', 'calendar', '#dc2626', NULL, NULL, NULL, '2026-01-22 00:18:54'),
+(10, 1, 'student_promoted', 'Student Promoted', 'Alex Johnson promoted to Advanced Web Development', 'trending-up', '#7c3aed', NULL, NULL, NULL, '2026-01-21 23:18:54');
 
 -- --------------------------------------------------------
 
@@ -47,8 +69,21 @@ CREATE TABLE `announcements` (
   `message` text DEFAULT NULL,
   `target_role` varchar(50) DEFAULT NULL,
   `session_id` int(11) DEFAULT NULL,
-  `created_at` datetime DEFAULT NULL
+  `created_at` datetime DEFAULT NULL,
+  `status` enum('active','inactive') DEFAULT 'active',
+  `start_date` datetime DEFAULT NULL,
+  `end_date` datetime DEFAULT NULL,
+  `priority` enum('low','medium','high','urgent') DEFAULT 'medium',
+  `created_by` int(11) DEFAULT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `announcements`
+--
+
+INSERT INTO `announcements` (`id`, `title`, `message`, `target_role`, `session_id`, `created_at`, `status`, `start_date`, `end_date`, `priority`, `created_by`, `updated_at`) VALUES
+(1, 'System Maintenance This Weekend', 'Our system will undergo scheduled maintenance on Saturday, Dec 15th from 10:00 PM to 2:00 AM. The portal will be temporarily unavailable during this time. Please complete any urgent tasks before the maintenance window.', 'all', 1, '2026-01-21 22:11:50', 'active', NULL, NULL, 'high', 1, '2026-01-22 07:00:35');
 
 -- --------------------------------------------------------
 
@@ -64,34 +99,36 @@ CREATE TABLE `batches` (
   `start_time` time DEFAULT NULL,
   `end_time` time DEFAULT NULL,
   `max_students` int(11) DEFAULT NULL,
-  `status` varchar(50) DEFAULT NULL
+  `status` varchar(50) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `batches`
 --
 
-INSERT INTO `batches` (`id`, `skill_id`, `session_id`, `batch_name`, `start_time`, `end_time`, `max_students`, `status`) VALUES
-(1, 1, 1, 'Batch A', '10:00:00', '12:00:00', 25, 'active'),
-(2, 1, 1, 'Batch B', '14:00:00', '16:00:00', 25, 'active'),
-(3, 2, 1, 'Batch A', '10:00:00', '12:00:00', 25, 'active'),
-(4, 2, 1, 'Batch B', '14:00:00', '16:00:00', 25, 'active'),
-(5, 3, 1, 'Batch A', '10:00:00', '12:00:00', 25, 'active'),
-(6, 3, 1, 'Batch B', '14:00:00', '16:00:00', 25, 'active'),
-(7, 4, 1, 'Batch A', '10:00:00', '12:00:00', 25, 'active'),
-(8, 4, 1, 'Batch B', '14:00:00', '16:00:00', 25, 'active'),
-(9, 5, 1, 'Batch A', '10:00:00', '12:00:00', 25, 'active'),
-(10, 5, 1, 'Batch B', '14:00:00', '16:00:00', 25, 'active'),
-(11, 6, 1, 'Batch A', '10:00:00', '12:00:00', 25, 'active'),
-(12, 6, 1, 'Batch B', '14:00:00', '16:00:00', 25, 'active'),
-(13, 7, 1, 'Batch A', '10:00:00', '12:00:00', 25, 'active'),
-(14, 7, 1, 'Batch B', '14:00:00', '16:00:00', 25, 'active'),
-(15, 8, 1, 'Batch A', '10:00:00', '12:00:00', 25, 'active'),
-(16, 8, 1, 'Batch B', '14:00:00', '16:00:00', 25, 'active'),
-(17, 9, 1, 'Batch A', '10:00:00', '12:00:00', 25, 'active'),
-(18, 9, 1, 'Batch B', '14:00:00', '16:00:00', 25, 'active'),
-(19, 10, 1, 'Batch A', '10:00:00', '12:00:00', 25, 'active'),
-(20, 10, 1, 'Batch B', '14:00:00', '16:00:00', 25, 'active');
+INSERT INTO `batches` (`id`, `skill_id`, `session_id`, `batch_name`, `start_time`, `end_time`, `max_students`, `status`, `created_at`, `updated_at`) VALUES
+(1, 1, 1, 'Batch A', '10:00:00', '12:00:00', 25, 'active', '2026-01-22 06:28:57', '2026-01-22 06:28:57'),
+(2, 1, 1, 'Batch B', '14:00:00', '16:00:00', 25, 'active', '2026-01-22 06:28:57', '2026-01-22 06:28:57'),
+(3, 2, 1, 'Batch A', '10:00:00', '12:00:00', 25, 'active', '2026-01-22 06:28:57', '2026-01-22 06:28:57'),
+(4, 2, 1, 'Batch B', '14:00:00', '16:00:00', 25, 'active', '2026-01-22 06:28:57', '2026-01-22 06:28:57'),
+(5, 3, 1, 'Batch A', '10:00:00', '12:00:00', 25, 'active', '2026-01-22 06:28:57', '2026-01-22 06:28:57'),
+(6, 3, 1, 'Batch B', '14:00:00', '16:00:00', 25, 'active', '2026-01-22 06:28:57', '2026-01-22 06:28:57'),
+(7, 4, 1, 'Batch A', '10:00:00', '12:00:00', 25, 'active', '2026-01-22 06:28:57', '2026-01-22 06:28:57'),
+(8, 4, 1, 'Batch B', '14:00:00', '16:00:00', 25, 'active', '2026-01-22 06:28:57', '2026-01-22 06:28:57'),
+(9, 5, 1, 'Batch A', '10:00:00', '12:00:00', 25, 'active', '2026-01-22 06:28:57', '2026-01-22 06:28:57'),
+(10, 5, 1, 'Batch B', '14:00:00', '16:00:00', 25, 'active', '2026-01-22 06:28:57', '2026-01-22 06:28:57'),
+(11, 6, 1, 'Batch A', '10:00:00', '12:00:00', 25, 'active', '2026-01-22 06:28:57', '2026-01-22 06:28:57'),
+(12, 6, 1, 'Batch B', '14:00:00', '16:00:00', 25, 'active', '2026-01-22 06:28:57', '2026-01-22 06:28:57'),
+(13, 7, 1, 'Batch A', '10:00:00', '12:00:00', 25, 'active', '2026-01-22 06:28:57', '2026-01-22 06:28:57'),
+(14, 7, 1, 'Batch B', '14:00:00', '16:00:00', 25, 'active', '2026-01-22 06:28:57', '2026-01-22 06:28:57'),
+(15, 8, 1, 'Batch A', '10:00:00', '12:00:00', 25, 'active', '2026-01-22 06:28:57', '2026-01-22 06:28:57'),
+(16, 8, 1, 'Batch B', '14:00:00', '16:00:00', 25, 'active', '2026-01-22 06:28:57', '2026-01-22 06:28:57'),
+(17, 9, 1, 'Batch A', '10:00:00', '12:00:00', 25, 'active', '2026-01-22 06:28:57', '2026-01-22 06:28:57'),
+(18, 9, 1, 'Batch B', '14:00:00', '16:00:00', 25, 'active', '2026-01-22 06:28:57', '2026-01-22 06:28:57'),
+(19, 10, 1, 'Batch A', '10:00:00', '12:00:00', 25, 'active', '2026-01-22 06:28:57', '2026-01-22 06:28:57'),
+(20, 10, 1, 'Batch B', '14:00:00', '16:00:00', 25, 'active', '2026-01-22 06:28:57', '2026-01-22 06:28:57');
 
 -- --------------------------------------------------------
 
@@ -364,6 +401,36 @@ CREATE TABLE `students` (
   `updated_at` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Dumping data for table `students`
+--
+
+INSERT INTO `students` (`id`, `user_id`, `student_code`, `name`, `father_name`, `gender`, `dob`, `phone`, `address`, `status`, `created_at`, `updated_at`) VALUES
+(1, 2, 'STD-202601210002', 'test test', 'test father', 'male', '2002-02-06', '0000000000', 'Billi tang', 'active', '2026-01-21 03:09:19', '2026-01-21 03:10:56'),
+(2, 3, 'STD-202601210003', 'Test 2', 'test2 father', 'male', '2002-07-24', '0000-0000-0000', 'karachi', 'active', '2026-01-21 03:10:36', NULL),
+(3, 6, 'STD-202601220006', 'ibad khan', 'Ahmed Khan', 'male', '2002-02-05', '0321452165', 'KOHAT', 'active', '2026-01-21 21:33:41', NULL);
+
+--
+-- Triggers `students`
+--
+DELIMITER $$
+CREATE TRIGGER `after_student_insert` AFTER INSERT ON `students` FOR EACH ROW BEGIN
+    -- Insert into activity_logs
+    INSERT INTO activity_logs (user_id, action, module, table_name, record_id, details, operation, new_data)
+    VALUES (NEW.user_id, 'create', 'student', 'students', NEW.id, 
+            CONCAT('Student created: ', NEW.name, ' (', NEW.student_code, ')'), 
+            'INSERT',
+            JSON_OBJECT('name', NEW.name, 'student_code', NEW.student_code, 'phone', NEW.phone));
+    
+    -- Insert into system_activities
+    INSERT INTO system_activities (activity_type, title, description, user_id, related_id, related_table)
+    VALUES ('enrollment', 'New Student Enrollment', 
+            CONCAT(NEW.name, ' enrolled'), 
+            NEW.user_id, NEW.id, 'students');
+END
+$$
+DELIMITER ;
+
 -- --------------------------------------------------------
 
 --
@@ -378,13 +445,22 @@ CREATE TABLE `student_attendance` (
   `session_id` int(11) DEFAULT NULL,
   `batch_id` int(11) DEFAULT NULL,
   `attendance_date` date DEFAULT NULL,
-  `attendance_status` varchar(50) DEFAULT NULL,
+  `attendance_status` varchar(20) NOT NULL DEFAULT 'present',
+  `attendance_percentage` decimal(5,2) DEFAULT NULL,
   `marked_by` int(11) DEFAULT NULL,
   `remarks` text DEFAULT NULL,
   `status` varchar(50) DEFAULT NULL,
   `created_at` datetime DEFAULT NULL,
   `updated_at` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `student_attendance`
+--
+
+INSERT INTO `student_attendance` (`id`, `enrollment_id`, `student_id`, `skill_id`, `session_id`, `batch_id`, `attendance_date`, `attendance_status`, `attendance_percentage`, `marked_by`, `remarks`, `status`, `created_at`, `updated_at`) VALUES
+(1, 1, 1, 1, 1, 1, '2026-01-21', 'present', 100.00, 1, '', 'active', '2026-01-21 03:28:50', '2026-01-21 03:36:22'),
+(2, 3, 3, 9, 1, 17, '2026-01-22', 'present', 100.00, 1, '', 'active', '2026-01-21 21:34:35', NULL);
 
 -- --------------------------------------------------------
 
@@ -403,6 +479,16 @@ CREATE TABLE `student_enrollments` (
   `created_at` datetime DEFAULT NULL,
   `updated_at` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `student_enrollments`
+--
+
+INSERT INTO `student_enrollments` (`id`, `student_id`, `skill_id`, `session_id`, `batch_id`, `admission_date`, `status`, `created_at`, `updated_at`) VALUES
+(1, 1, 1, 1, 1, '2026-01-21', 'active', '2026-01-21 03:09:19', NULL),
+(2, 2, 9, 1, 18, '2026-01-21', 'active', '2026-01-21 03:10:36', NULL),
+(3, 3, 9, 1, 17, '2026-01-22', 'active', '2026-01-21 21:33:41', NULL),
+(4, 3, 1, 1, 2, '2026-01-22', 'active', '2026-01-21 21:33:41', NULL);
 
 -- --------------------------------------------------------
 
@@ -423,6 +509,15 @@ CREATE TABLE `teachers` (
   `created_at` datetime DEFAULT NULL,
   `updated_at` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `teachers`
+--
+
+INSERT INTO `teachers` (`id`, `user_id`, `teacher_code`, `name`, `gender`, `qualification`, `experience_years`, `phone`, `status`, `created_at`, `updated_at`) VALUES
+(1, 4, 'TCH-202601220004', 'test teacher 1', NULL, 'MSc computer', 5, '000000-00000', 'active', '2026-01-21 21:19:54', NULL),
+(2, 5, 'TCH-202601220005', 'test teacher 2', NULL, 'Bs computer science', 3, '00000-00000', 'active', '2026-01-21 21:21:05', NULL),
+(3, 7, 'TCH-202601220007', 'Sajid Mehmood', NULL, 'Bs computer science', 5, '03177990549', 'active', '2026-01-21 22:52:24', NULL);
 
 -- --------------------------------------------------------
 
@@ -478,7 +573,28 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `username`, `email`, `password`, `user_type_id`, `status`, `created_at`, `updated_at`) VALUES
-(1, 'admin', 'admin@academy.com', 'admin123', 1, 'active', '2026-01-21 02:24:59', '2026-01-21 02:24:59');
+(1, 'admin', 'admin@academy.com', 'admin123', 1, 'active', '2026-01-21 02:24:59', '2026-01-21 02:24:59'),
+(2, 'test1', 'test@gmail.com', '123', 3, 'active', '2026-01-21 03:09:19', '2026-01-21 03:10:56'),
+(3, 'test2', 'test2@gmail.com', '123', 3, 'active', '2026-01-21 03:10:36', NULL),
+(4, 'testteacher1', 'testteacher.1@eduskillpro.com', '123', 2, 'active', '2026-01-21 21:19:54', NULL),
+(5, 'testteacher2', 'testteacher2.@eduskillpro.com', '123', 2, 'active', '2026-01-21 21:21:05', NULL),
+(6, 'ibad', 'ibad@gmail.com', '123', 3, 'active', '2026-01-21 21:33:41', NULL),
+(7, 'sajid28', 'sajid.mehmood28@eduskillpro.com', '123', 2, 'active', '2026-01-21 22:52:24', NULL);
+
+--
+-- Triggers `users`
+--
+DELIMITER $$
+CREATE TRIGGER `after_teacher_insert` AFTER INSERT ON `users` FOR EACH ROW BEGIN
+    IF NEW.user_type_id = 2 THEN
+        INSERT INTO system_activities (activity_type, title, description, user_id, related_id, related_table)
+        VALUES ('teacher_added', 'New Teacher Added', 
+                CONCAT('Teacher: ', NEW.username),  -- Using username instead of name
+                NEW.id, NEW.id, 'users');
+    END IF;
+END
+$$
+DELIMITER ;
 
 -- --------------------------------------------------------
 
@@ -500,15 +616,36 @@ INSERT INTO `user_types` (`id`, `type_name`) VALUES
 (2, 'Teacher'),
 (3, 'Student');
 
+-- --------------------------------------------------------
+
+--
+-- Stand-in structure for view `view_recent_activities`
+-- (See below for the actual view)
+--
+CREATE TABLE `view_recent_activities` (
+);
+
+-- --------------------------------------------------------
+
+--
+-- Structure for view `view_recent_activities`
+--
+DROP TABLE IF EXISTS `view_recent_activities`;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `view_recent_activities`  AS SELECT `sa`.`id` AS `id`, `sa`.`activity_type` AS `activity_type`, `sa`.`title` AS `title`, `sa`.`description` AS `description`, `sa`.`user_id` AS `user_id`, `sa`.`related_id` AS `related_id`, `sa`.`related_table` AS `related_table`, `sa`.`is_read` AS `is_read`, `sa`.`created_at` AS `created_at`, `u`.`username` AS `username`, `u`.`username` AS `user_name`, `ut`.`type_name` AS `user_type` FROM ((`system_activities` `sa` left join `users` `u` on(`sa`.`user_id` = `u`.`id`)) left join `user_types` `ut` on(`u`.`user_type_id` = `ut`.`id`)) ORDER BY `sa`.`created_at` DESC LIMIT 0, 100 ;
+
 --
 -- Indexes for dumped tables
 --
 
 --
--- Indexes for table `activity_logs`
+-- Indexes for table `activities`
 --
-ALTER TABLE `activity_logs`
-  ADD PRIMARY KEY (`id`);
+ALTER TABLE `activities`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_activity_type` (`activity_type`),
+  ADD KEY `idx_created_at` (`created_at`),
+  ADD KEY `idx_user_id` (`user_id`);
 
 --
 -- Indexes for table `announcements`
@@ -647,16 +784,16 @@ ALTER TABLE `user_types`
 --
 
 --
--- AUTO_INCREMENT for table `activity_logs`
+-- AUTO_INCREMENT for table `activities`
 --
-ALTER TABLE `activity_logs`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `activities`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT for table `announcements`
 --
 ALTER TABLE `announcements`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `batches`
@@ -740,25 +877,25 @@ ALTER TABLE `skill_syllabus`
 -- AUTO_INCREMENT for table `students`
 --
 ALTER TABLE `students`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `student_attendance`
 --
 ALTER TABLE `student_attendance`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `student_enrollments`
 --
 ALTER TABLE `student_enrollments`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `teachers`
 --
 ALTER TABLE `teachers`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `teacher_assignments`
@@ -776,7 +913,7 @@ ALTER TABLE `teacher_attendance`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `user_types`
