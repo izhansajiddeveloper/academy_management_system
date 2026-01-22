@@ -45,11 +45,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     // Enrollment details - First Skill
     $skill_id_1 = isset($_POST['skill_id_1']) ? intval($_POST['skill_id_1']) : 0;
     $batch_id_1 = isset($_POST['batch_id_1']) ? intval($_POST['batch_id_1']) : 0;
-    
+
     // Enrollment details - Second Skill (Optional)
     $skill_id_2 = isset($_POST['skill_id_2']) ? intval($_POST['skill_id_2']) : 0;
     $batch_id_2 = isset($_POST['batch_id_2']) ? intval($_POST['batch_id_2']) : 0;
-    
+
     $session_id = $current_session_id; // Always use current session
     $admission_date = isset($_POST['admission_date']) ? $_POST['admission_date'] : date('Y-m-d');
 
@@ -223,7 +223,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             content: " *";
             color: #ef4444;
         }
-        
+
         .current-session {
             background-color: #f0f9ff;
             border: 1px solid #bae6fd;
@@ -233,11 +233,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             align-items: center;
             gap: 8px;
         }
-        
+
         .border-red-300 {
             border-color: #fca5a5;
         }
-        
+
         .enrollment-section {
             background-color: #f8fafc;
             border: 1px solid #e2e8f0;
@@ -245,7 +245,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             padding: 20px;
             margin-bottom: 20px;
         }
-        
+
         .enrollment-section-title {
             display: flex;
             align-items: center;
@@ -255,7 +255,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             color: #1e40af;
             margin-bottom: 16px;
         }
-        
+
         .optional-tag {
             background-color: #dbeafe;
             color: #1e40af;
@@ -264,7 +264,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             border-radius: 12px;
             margin-left: 8px;
         }
-        
+
         .disabled-option {
             color: #9ca3af;
             background-color: #f3f4f6;
@@ -278,7 +278,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     <div class="flex">
         <!-- SIDEBAR - INCLUDED FROM EXTERNAL FILE -->
-         <?php include __DIR__ . '/../includes/sidebar.php'; ?>
+        <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
         <!-- MAIN CONTENT -->
         <main class="flex-1 p-6">
@@ -603,16 +603,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         const webDevId = <?php echo $web_dev_id; ?>;
         let selectedBatch1 = '';
         let selectedBatchType1 = ''; // 'A' or 'B'
-        
+
         // Function to filter batches based on selected skill
         function filterBatches(enrollmentNumber) {
             const skillSelect = document.getElementById(`skillSelect${enrollmentNumber}`);
             const batchSelect = document.getElementById(`batchSelect${enrollmentNumber}`);
             const selectedSkillId = parseInt(skillSelect.value);
-            
+
             // Clear current options
             batchSelect.innerHTML = '<option value="">Select Batch</option>';
-            
+
             if (!selectedSkillId) {
                 // If no skill selected, show message
                 batchSelect.innerHTML = '<option value="">Select a skill first</option>';
@@ -623,14 +623,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 }
                 return;
             }
-            
+
             // Filter batches for the selected skill
             const filteredBatches = allBatches.filter(batch => batch.skill_id == selectedSkillId);
-            
+
             // Add filtered batches
             filteredBatches.forEach(batch => {
                 let batchName = batch.batch_name;
-                
+
                 // Format batch name nicely
                 if (batchName.toLowerCase().includes('batch')) {
                     // Already has "Batch" in name
@@ -639,24 +639,24 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     // Add "Batch" prefix
                     batchName = "Batch " + batchName;
                 }
-                
+
                 // Extract batch letter (A, B, etc.)
                 const batchLetter = batch.batch_name.replace('Batch ', '').trim().toUpperCase();
-                
+
                 const option = new Option(batchName, batch.id);
                 option.setAttribute('data-skill-id', batch.skill_id);
                 option.setAttribute('data-batch-letter', batchLetter);
-                
+
                 // For second enrollment, disable Batch A if it was selected in first enrollment
                 if (enrollmentNumber === 2 && selectedBatchType1 === 'A' && batchLetter === 'A') {
                     option.disabled = true;
                     option.classList.add('disabled-option');
                     option.textContent = batchName + ' (Already enrolled in Batch A for another skill)';
                 }
-                
+
                 batchSelect.add(option);
             });
-            
+
             // If no batches found, add a disabled option
             if (batchSelect.options.length === 1) {
                 const option = new Option('No batches available for this skill', '');
@@ -664,22 +664,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 batchSelect.add(option);
             }
         }
-        
+
         // Update batch options for second enrollment when first batch changes
         function updateBatchOptions() {
             const batchSelect1 = document.getElementById('batchSelect1');
             const selectedOption1 = batchSelect1.options[batchSelect1.selectedIndex];
-            
+
             // Store selected batch info
             selectedBatch1 = batchSelect1.value;
             selectedBatchType1 = selectedOption1.getAttribute('data-batch-letter') || '';
-            
+
             // If second skill is selected, refresh its batches
             const skillSelect2 = document.getElementById('skillSelect2');
             if (skillSelect2.value) {
                 filterBatches(2);
             }
-            
+
             // Enforce rule: First enrollment must be in Batch A
             if (selectedBatchType1 && selectedBatchType1 !== 'A') {
                 alert('First enrollment must be in Batch A. Please select Batch A for first enrollment.');
@@ -690,20 +690,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 filterBatches(1);
             }
         }
-        
+
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
             // Initially disable batch selections until skills are chosen
             document.getElementById('batchSelect1').innerHTML = '<option value="">Select a skill first</option>';
             document.getElementById('batchSelect2').innerHTML = '<option value="">Select a skill first</option>';
-            
+
             // If skills are already selected from previous form submission, filter batches
             const skillSelect1 = document.getElementById('skillSelect1');
             const skillSelect2 = document.getElementById('skillSelect2');
-            
+
             if (skillSelect1.value) {
                 filterBatches(1);
-                
+
                 // If batch was previously selected, try to restore it
                 <?php if (isset($_POST['batch_id_1']) && $_POST['batch_id_1']): ?>
                     const selectedBatchId1 = <?= $_POST['batch_id_1'] ?>;
@@ -719,11 +719,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     }, 100);
                 <?php endif; ?>
             }
-            
+
             if (skillSelect2.value) {
                 setTimeout(() => {
                     filterBatches(2);
-                    
+
                     // If batch was previously selected, try to restore it
                     <?php if (isset($_POST['batch_id_2']) && $_POST['batch_id_2']): ?>
                         const selectedBatchId2 = <?= $_POST['batch_id_2'] ?>;
@@ -739,13 +739,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     <?php endif; ?>
                 }, 150);
             }
-            
+
             // Generate a suggested username from name
             document.querySelector('input[name="name"]')?.addEventListener('blur', function() {
                 const name = this.value.trim();
                 const usernameInput = document.querySelector('input[name="username"]');
                 const emailInput = document.querySelector('input[name="email"]');
-                
+
                 if (name && !usernameInput.value) {
                     // Create username: firstname.lastname + random 2 digits
                     const nameParts = name.toLowerCase().split(' ');
@@ -756,14 +756,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         suggestedUsername = nameParts[0] + Math.floor(Math.random() * 1000);
                     }
                     usernameInput.value = suggestedUsername;
-                    
+
                     if (!emailInput.value) {
                         const suggestedEmail = suggestedUsername + '@eduskillpro.com';
                         emailInput.value = suggestedEmail;
                     }
                 }
             });
-            
+
             // Auto-suggest password
             const passwordInput = document.querySelector('input[name="password"]');
             if (!passwordInput.value) {
@@ -774,13 +774,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 }
                 passwordInput.value = password;
             }
-            
+
             // Set admission date to today if not set
             const admissionDateInput = document.querySelector('input[name="admission_date"]');
             if (!admissionDateInput.value) {
                 admissionDateInput.value = '<?php echo date("Y-m-d"); ?>';
             }
-            
+
             // Real-time validation
             const inputs = document.querySelectorAll('.form-input, .form-select');
             inputs.forEach(input => {
@@ -791,7 +791,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         this.classList.remove('border-red-300');
                     }
                 });
-                
+
                 input.addEventListener('input', function() {
                     this.classList.remove('border-red-300');
                 });

@@ -3,6 +3,39 @@ require_once "../includes/auth_check.php";
 require_once "../config/db.php";
 include "../includes/navbar.php";
 
+// Add helper function for time display
+function time_elapsed_string($datetime, $full = false)
+{
+    $now = new DateTime;
+    $ago = new DateTime($datetime);
+    $diff = $now->diff($ago);
+
+    $weeks = floor($diff->d / 7);
+    $days = $diff->d - ($weeks * 7);
+
+    $string = array(
+        'y' => 'year',
+        'm' => 'month',
+        'w' => 'week',
+        'd' => 'day',
+        'h' => 'hour',
+        'i' => 'minute',
+        's' => 'second',
+    );
+
+    foreach ($string as $k => &$v) {
+        if (isset($diff->$k) && $diff->$k > 0) {
+            $v = $diff->$k . ' ' . $v . ($diff->$k > 1 ? 's' : '');
+        } else {
+            unset($string[$k]);
+        }
+    }
+
+
+    if (!$full) $string = array_slice($string, 0, 1);
+    return $string ? implode(', ', $string) . ' ago' : 'just now';
+}
+
 // Fetch real statistics from database
 
 // Total Students (active status)
@@ -75,6 +108,7 @@ $upcoming_query = "SELECT COUNT(*) as count FROM sessions WHERE status='active'"
 $upcoming_result = mysqli_query($conn, $upcoming_query);
 $upcoming_sessions = mysqli_fetch_assoc($upcoming_result)['count'];
 
+// SYSTEM NOTIFICATIONS - Only for activities
 // New Enrollments (last 7 days)
 $new_enrollments_query = "
     SELECT COUNT(*) as count 
@@ -83,6 +117,152 @@ $new_enrollments_query = "
 ";
 $new_enrollments_result = mysqli_query($conn, $new_enrollments_query);
 $new_enrollments = mysqli_fetch_assoc($new_enrollments_result)['count'];
+
+// New Teachers (last 7 days)
+$new_teachers_query = "
+    SELECT COUNT(*) as count 
+    FROM users 
+    WHERE user_type_id=2 AND status='active' AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+";
+$new_teachers_result = mysqli_query($conn, $new_teachers_query);
+$new_teachers = mysqli_fetch_assoc($new_teachers_result)['count'];
+
+// New Batches (last 7 days)
+$new_batches_query = "
+    SELECT COUNT(*) as count 
+    FROM batches 
+    WHERE status='active' AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+";
+$new_batches_result = mysqli_query($conn, $new_batches_query);
+$new_batches = mysqli_fetch_assoc($new_batches_result)['count'];
+
+// New Skills (last 7 days)
+$new_skills_query = "
+    SELECT COUNT(*) as count 
+    FROM skills 
+    WHERE status='active' AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+";
+$new_skills_result = mysqli_query($conn, $new_skills_query);
+$new_skills = mysqli_fetch_assoc($new_skills_result)['count'];
+
+// New Sessions (last 7 days)
+$new_sessions_query = "
+    SELECT COUNT(*) as count 
+    FROM sessions 
+    WHERE status='active' AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+";
+$new_sessions_result = mysqli_query($conn, $new_sessions_query);
+$new_sessions = mysqli_fetch_assoc($new_sessions_result)['count'];
+
+// Pending Fee Payments (unpaid fees)
+$pending_payments_query = "
+    SELECT COUNT(*) as count
+    FROM (
+        SELECT e.student_id, e.skill_id, COALESCE(SUM(fc.amount_paid),0) as total_paid
+        FROM student_enrollments e
+        LEFT JOIN fee_collections fc 
+            ON e.student_id = fc.student_id 
+            AND e.skill_id = fc.skill_id
+        WHERE e.status = 'active'
+        GROUP BY e.student_id, e.skill_id
+        HAVING total_paid < (
+            SELECT fs.total_fee 
+            FROM fee_structures fs 
+            WHERE fs.skill_id = e.skill_id 
+            LIMIT 1
+        )
+    ) AS pending
+";
+
+$pending_payments_result = mysqli_query($conn, $pending_payments_query);
+$pending_payments = mysqli_fetch_assoc($pending_payments_result)['count'] ?? 0;
+
+// Calculate total system notifications
+$system_notifications = $new_enrollments + $new_teachers + $new_batches + $new_skills + $new_sessions + $pending_payments;
+
+// Get system activities for dropdown
+$system_activities_query = "
+    (SELECT 'student_enrollment' as type, 'New Student Enrollment' as title, 
+            CONCAT(s.name, ' enrolled in ', sk.skill_name) as description,
+            e.created_at
+     FROM student_enrollments e
+     JOIN students s ON e.student_id = s.id
+     JOIN skills sk ON e.skill_id = sk.id
+     WHERE e.status='active' 
+     ORDER BY e.created_at DESC LIMIT 3)
+    
+    UNION ALL
+    
+    (SELECT 'teacher' as type, 'New Teacher Added' as title,
+            CONCAT('Teacher: ', u.username) as description,
+            u.created_at
+     FROM users u
+     WHERE u.user_type_id = 2 AND u.status = 'active'
+     ORDER BY u.created_at DESC LIMIT 2)
+    
+    UNION ALL
+    
+    (SELECT 'batch' as type, 'New Batch Created' as title,
+            CONCAT('Batch: ', b.batch_name, ' for ', sk.skill_name) as description,
+            b.created_at
+     FROM batches b
+     JOIN skills sk ON b.skill_id = sk.id
+     WHERE b.status='active'
+     ORDER BY b.created_at DESC LIMIT 2)
+    
+    UNION ALL
+    
+    (SELECT 'payment' as type, 'Fee Payment Pending' as title,
+            CONCAT(s.name, ' - ', sk.skill_name) as description,
+            MAX(fc.created_at) as created_at
+     FROM student_enrollments e
+     JOIN students s ON e.student_id = s.id
+     JOIN skills sk ON e.skill_id = sk.id
+     LEFT JOIN fee_collections fc 
+        ON e.student_id = fc.student_id 
+        AND e.skill_id = fc.skill_id
+     WHERE e.status='active'
+     GROUP BY e.student_id, e.skill_id
+     HAVING COALESCE(SUM(fc.amount_paid),0) < (
+        SELECT total_fee 
+        FROM fee_structures fs 
+        WHERE fs.skill_id = e.skill_id 
+        LIMIT 1
+     )
+     ORDER BY created_at DESC LIMIT 2)
+    
+    ORDER BY created_at DESC LIMIT 8
+";
+
+$system_activities_result = mysqli_query($conn, $system_activities_query);
+
+// ANNOUNCEMENTS - Separate system
+// Get announcements count for the current user (admin)
+$user_role = 'admin'; // Since this is admin dashboard
+$announcements_query = "SELECT COUNT(*) as count FROM announcements 
+                       WHERE status = 'active' 
+                       AND (target_role = 'all' OR target_role = ?)
+                       AND (start_date IS NULL OR start_date <= NOW())
+                       AND (end_date IS NULL OR end_date >= NOW())";
+
+$stmt = mysqli_prepare($conn, $announcements_query);
+mysqli_stmt_bind_param($stmt, "s", $user_role);
+mysqli_stmt_execute($stmt);
+$ann_result = mysqli_stmt_get_result($stmt);
+$announcements_count = mysqli_fetch_assoc($ann_result)['count'];
+
+// Get announcements for dropdown (last 5)
+$announcements_list_query = "SELECT * FROM announcements 
+                           WHERE status = 'active' 
+                           AND (target_role = 'all' OR target_role = ?)
+                           AND (start_date IS NULL OR start_date <= NOW())
+                           AND (end_date IS NULL OR end_date >= NOW())
+                           ORDER BY created_at DESC LIMIT 5";
+
+$stmt2 = mysqli_prepare($conn, $announcements_list_query);
+mysqli_stmt_bind_param($stmt2, "s", $user_role);
+mysqli_stmt_execute($stmt2);
+$announcements_list = mysqli_stmt_get_result($stmt2);
 
 // Attendance Rate (placeholder - you would need an attendance table)
 $attendance_rate = 92; // Default value
@@ -156,6 +336,7 @@ while ($row = mysqli_fetch_assoc($today_sessions_result)) {
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
@@ -243,6 +424,108 @@ while ($row = mysqli_fetch_assoc($today_sessions_result)) {
             background: #d1d5db;
             border-radius: 10px;
         }
+
+        .notification-dropdown {
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e5e7eb;
+        }
+
+        .announcement-dropdown {
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e5e7eb;
+        }
+
+        .priority-badge {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .priority-urgent {
+            background-color: #fee2e2;
+            color: #dc2626;
+        }
+
+        .priority-high {
+            background-color: #ffedd5;
+            color: #ea580c;
+        }
+
+        .priority-medium {
+            background-color: #fef3c7;
+            color: #d97706;
+        }
+
+        .priority-low {
+            background-color: #d1fae5;
+            color: #059669;
+        }
+
+        .activity-item {
+            transition: all 0.2s ease;
+        }
+
+        .activity-item:hover {
+            background-color: #f8fafc;
+        }
+
+        .activity-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .activity-student {
+            background-color: #dbeafe;
+            color: #1d4ed8;
+        }
+
+        .activity-teacher {
+            background-color: #f3e8ff;
+            color: #7c3aed;
+        }
+
+        .activity-batch {
+            background-color: #dcfce7;
+            color: #16a34a;
+        }
+
+        .activity-payment {
+            background-color: #fef3c7;
+            color: #d97706;
+        }
+
+        .activity-skill {
+            background-color: #fce7f3;
+            color: #be185d;
+        }
+
+        .activity-session {
+            background-color: #e0f2fe;
+            color: #0369a1;
+        }
+
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .line-clamp-1 {
+            display: -webkit-box;
+            -webkit-line-clamp: 1;
+            line-clamp: 1;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
     </style>
 </head>
 
@@ -251,9 +534,7 @@ while ($row = mysqli_fetch_assoc($today_sessions_result)) {
     <div class="flex main-container">
 
         <!-- SIDEBAR -->
-
         <?php require_once './includes/sidebar.php'; ?>
-
 
         <!-- MAIN CONTENT -->
         <main class="flex-1 p-6 overflow-y-auto custom-scrollbar">
@@ -268,13 +549,234 @@ while ($row = mysqli_fetch_assoc($today_sessions_result)) {
                             <?php echo date('l, F j, Y'); ?>
                         </p>
                     </div>
-                    <div class="flex items-center gap-4">
-                        <div class="relative">
-                            <button class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition-colors border">
-                                <i class="fas fa-bell"></i>
+                    <div class="flex items-center gap-3">
+                        <!-- Announcements Icon - SEPARATE -->
+                        <div class="relative" x-data="{ open: false }" @click.outside="open = false">
+                            <button @click="open = !open" class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition-colors border relative">
+                                <i class="fas fa-bullhorn"></i>
+
+                                <?php if ($announcements_count > 0): ?>
+                                    <span class="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                                        <?php echo $announcements_count > 9 ? '9+' : $announcements_count; ?>
+                                    </span>
+                                <?php endif; ?>
                             </button>
-                            <span class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center"><?php echo $new_enrollments; ?></span>
+
+                            <!-- Announcements Dropdown -->
+                            <div x-show="open" x-transition
+                                class="absolute right-0 mt-2 w-96 bg-white rounded-lg announcement-dropdown z-50 overflow-hidden">
+                                <div class="p-4 border-b border-gray-100">
+                                    <div class="flex justify-between items-center">
+                                        <h3 class="font-semibold text-gray-800">
+                                            <i class="fas fa-bullhorn mr-2 text-blue-500"></i> Announcements
+                                        </h3>
+                                        <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                            <?php echo $announcements_count; ?> active
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div class="overflow-y-auto max-h-96">
+                                    <?php if ($announcements_count > 0): ?>
+                                        <?php mysqli_data_seek($announcements_list, 0); // Reset pointer 
+                                        ?>
+                                        <?php while ($announcement = mysqli_fetch_assoc($announcements_list)):
+                                            $time_ago = time_elapsed_string($announcement['created_at']);
+                                            $priority_class = $announcement['priority'];
+                                        ?>
+                                            <div class="activity-item p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                                                onclick="window.location.href='announcements.php'">
+                                                <div class="flex justify-between items-start mb-2">
+                                                    <h5 class="font-medium text-gray-800 text-sm"><?php echo htmlspecialchars($announcement['title']); ?></h5>
+                                                    <span class="priority-badge priority-<?php echo $priority_class; ?>">
+                                                        <?php echo $priority_class; ?>
+                                                    </span>
+                                                </div>
+                                                <p class="text-xs text-gray-600 mb-3 line-clamp-2">
+                                                    <?php echo htmlspecialchars($announcement['message']); ?>
+                                                </p>
+                                                <div class="flex justify-between items-center">
+                                                    <span class="text-xs text-gray-500">
+                                                        <i class="far fa-clock mr-1"></i><?php echo $time_ago; ?>
+                                                    </span>
+                                                    <span class="text-xs text-gray-500">
+                                                        <?php echo ucfirst($announcement['target_role']); ?>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        <?php endwhile; ?>
+                                    <?php else: ?>
+                                        <div class="p-8 text-center">
+                                            <i class="fas fa-bullhorn text-gray-300 text-4xl mb-3"></i>
+                                            <p class="text-sm font-medium text-gray-500 mb-2">No announcements yet</p>
+                                            <p class="text-xs text-gray-400 mb-4">Create your first announcement</p>
+                                            <a href="announcements.php" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors inline-block">
+                                                <i class="fas fa-plus mr-1"></i> Create Announcement
+                                            </a>
+                                        </div>
+                                    <?php endif; ?>
+
+                                    <!-- View All Button -->
+                                    <div class="p-4 bg-gray-50 border-t border-gray-100">
+                                        <a href="announcements.php"
+                                            class="block text-center text-sm bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+                                            <i class="fas fa-external-link-alt mr-2"></i> View All Announcements
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
+
+                        <!-- System Notification Bell - SEPARATE -->
+                        <div class="relative" x-data="{ open: false }" @click.outside="open = false">
+                            <button @click="open = !open" class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition-colors border relative">
+                                <i class="fas fa-bell"></i>
+
+                                <?php if ($system_notifications > 0): ?>
+                                    <span class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                                        <?php echo $system_notifications > 9 ? '9+' : $system_notifications; ?>
+                                    </span>
+                                <?php endif; ?>
+                            </button>
+
+                            <!-- System Notifications Dropdown -->
+                            <div x-show="open" x-transition
+                                class="absolute right-0 mt-2 w-96 bg-white rounded-lg notification-dropdown z-50 overflow-hidden">
+                                <div class="p-4 border-b border-gray-100">
+                                    <div class="flex justify-between items-center">
+                                        <h3 class="font-semibold text-gray-800">
+                                            <i class="fas fa-bell mr-2 text-red-500"></i> System Activities
+                                        </h3>
+                                        <span class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
+                                            <?php echo $system_notifications; ?> new
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <!-- Button to view all activities -->
+                                <div class="p-4">
+                                    <a href="/academy_management_system/admin/activity_logs.php"
+                                        class="block w-full text-center bg-blue-500 hover:bg-blue-600 text-white font-medium px-4 py-2 rounded-lg transition-colors">
+                                        View All Activities
+                                    </a>
+                                </div>
+
+
+                                <div class="overflow-y-auto max-h-96">
+                                    <?php if (mysqli_num_rows($system_activities_result) > 0): ?>
+                                        <?php while ($activity = mysqli_fetch_assoc($system_activities_result)):
+                                            $time_ago = time_elapsed_string($activity['created_at']);
+                                            $type_class = 'activity-' . $activity['type'];
+                                            $icon = '';
+
+                                            switch ($activity['type']) {
+                                                case 'student_enrollment':
+                                                    $icon = 'fas fa-user-graduate';
+                                                    break;
+                                                case 'teacher':
+                                                    $icon = 'fas fa-chalkboard-teacher';
+                                                    break;
+                                                case 'batch':
+                                                    $icon = 'fas fa-layer-group';
+                                                    break;
+                                                case 'payment':
+                                                    $icon = 'fas fa-money-bill-wave';
+                                                    break;
+                                                case 'skill':
+                                                    $icon = 'fas fa-graduation-cap';
+                                                    break;
+                                                case 'session':
+                                                    $icon = 'fas fa-calendar-alt';
+                                                    break;
+                                            }
+                                        ?>
+                                            <div class="activity-item p-4 border-b border-gray-100 hover:bg-gray-50">
+                                                <div class="flex items-start">
+                                                    <div class="activity-icon <?php echo $type_class; ?> mr-3">
+                                                        <i class="<?php echo $icon; ?>"></i>
+                                                    </div>
+                                                    <div class="flex-1">
+                                                        <h5 class="font-medium text-gray-800 text-sm mb-1"><?php echo htmlspecialchars($activity['title']); ?></h5>
+                                                        <p class="text-xs text-gray-600 mb-2"><?php echo htmlspecialchars($activity['description']); ?></p>
+                                                        <span class="text-xs text-gray-500">
+                                                            <i class="far fa-clock mr-1"></i><?php echo $time_ago; ?>
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        <?php endwhile; ?>
+
+                                        <!-- System Statistics Summary -->
+                                        <div class="p-4 bg-gray-50 border-t border-gray-100">
+                                            <h4 class="text-xs font-semibold text-gray-700 mb-3 uppercase tracking-wider">Recent Activities Summary</h4>
+                                            <div class="grid grid-cols-2 gap-2">
+                                                <?php if ($new_enrollments > 0): ?>
+                                                    <div class="flex items-center text-xs">
+                                                        <div class="w-6 h-6 bg-blue-100 rounded flex items-center justify-center mr-2">
+                                                            <i class="fas fa-user-graduate text-blue-600 text-xs"></i>
+                                                        </div>
+                                                        <span class="text-gray-700"><?php echo $new_enrollments; ?> new students</span>
+                                                    </div>
+                                                <?php endif; ?>
+
+                                                <?php if ($new_teachers > 0): ?>
+                                                    <div class="flex items-center text-xs">
+                                                        <div class="w-6 h-6 bg-purple-100 rounded flex items-center justify-center mr-2">
+                                                            <i class="fas fa-chalkboard-teacher text-purple-600 text-xs"></i>
+                                                        </div>
+                                                        <span class="text-gray-700"><?php echo $new_teachers; ?> new teachers</span>
+                                                    </div>
+                                                <?php endif; ?>
+
+                                                <?php if ($new_batches > 0): ?>
+                                                    <div class="flex items-center text-xs">
+                                                        <div class="w-6 h-6 bg-green-100 rounded flex items-center justify-center mr-2">
+                                                            <i class="fas fa-layer-group text-green-600 text-xs"></i>
+                                                        </div>
+                                                        <span class="text-gray-700"><?php echo $new_batches; ?> new batches</span>
+                                                    </div>
+                                                <?php endif; ?>
+
+                                                <?php if ($new_skills > 0): ?>
+                                                    <div class="flex items-center text-xs">
+                                                        <div class="w-6 h-6 bg-pink-100 rounded flex items-center justify-center mr-2">
+                                                            <i class="fas fa-graduation-cap text-pink-600 text-xs"></i>
+                                                        </div>
+                                                        <span class="text-gray-700"><?php echo $new_skills; ?> new skills</span>
+                                                    </div>
+                                                <?php endif; ?>
+
+                                                <?php if ($new_sessions > 0): ?>
+                                                    <div class="flex items-center text-xs">
+                                                        <div class="w-6 h-6 bg-blue-100 rounded flex items-center justify-center mr-2">
+                                                            <i class="fas fa-calendar-alt text-blue-600 text-xs"></i>
+                                                        </div>
+                                                        <span class="text-gray-700"><?php echo $new_sessions; ?> new sessions</span>
+                                                    </div>
+                                                <?php endif; ?>
+
+                                                <?php if ($pending_payments > 0): ?>
+                                                    <div class="flex items-center text-xs">
+                                                        <div class="w-6 h-6 bg-yellow-100 rounded flex items-center justify-center mr-2">
+                                                            <i class="fas fa-money-bill-wave text-yellow-600 text-xs"></i>
+                                                        </div>
+                                                        <span class="text-gray-700"><?php echo $pending_payments; ?> pending payments</span>
+                                                    </div>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                    <?php else: ?>
+                                        <div class="p-8 text-center">
+                                            <i class="fas fa-bell-slash text-gray-300 text-4xl mb-3"></i>
+                                            <p class="text-sm font-medium text-gray-500 mb-1">No recent activities</p>
+                                            <p class="text-xs text-gray-400">System activities will appear here</p>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- User Profile -->
                         <div class="flex items-center gap-3 bg-white p-3 rounded-lg border">
                             <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
                                 <i class="fas fa-user-shield"></i>
@@ -475,29 +977,84 @@ while ($row = mysqli_fetch_assoc($today_sessions_result)) {
                     </div>
                 </div>
 
-                <!-- Attendance Stats -->
+                <!-- System Activities Panel -->
                 <div class="chart-container">
                     <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-semibold text-gray-800">Attendance Overview</h3>
-                        <div class="text-right">
-                            <p class="text-xl font-bold text-gray-800"><?php echo $attendance_rate; ?>%</p>
-                            <p class="text-xs text-gray-500">Overall Rate</p>
-                        </div>
+                        <h3 class="text-lg font-semibold text-gray-800">Recent System Activities</h3>
+                        <span class="text-sm px-3 py-1 bg-red-50 text-red-700 rounded-full">
+                            <?php echo $system_notifications ?? 0; ?> new
+                        </span>
                     </div>
-                    <div style="height: 250px;">
-                        <canvas id="attendanceChart"></canvas>
-                    </div>
-                    <div class="grid grid-cols-2 gap-3 mt-4">
-                        <div class="text-center p-3 bg-gray-50 rounded-lg">
-                            <p class="text-sm text-gray-600">Present Today</p>
-                            <p class="text-lg font-semibold text-gray-800">142</p>
-                        </div>
-                        <div class="text-center p-3 bg-gray-50 rounded-lg">
-                            <p class="text-sm text-gray-600">Absent Today</p>
-                            <p class="text-lg font-semibold text-gray-800">14</p>
-                        </div>
+
+                    <div class="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                        <?php
+                        // Re-execute system activities query for the panel
+                        $panel_activities_result = mysqli_query($conn, $system_activities_query);
+
+                        if ($panel_activities_result && mysqli_num_rows($panel_activities_result) > 0):
+                            $count = 0;
+
+                            while (($activity = mysqli_fetch_assoc($panel_activities_result)) && $count < 4):
+
+                                if (!$activity) continue;
+
+                                $time_ago = time_elapsed_string($activity['created_at'] ?? null);
+                                $type_class = 'activity-' . ($activity['type'] ?? 'default');
+                                $icon = 'fas fa-info-circle';
+
+                                switch ($activity['type'] ?? '') {
+                                    case 'student_enrollment':
+                                        $icon = 'fas fa-user-graduate';
+                                        break;
+                                    case 'teacher':
+                                        $icon = 'fas fa-chalkboard-teacher';
+                                        break;
+                                    case 'batch':
+                                        $icon = 'fas fa-layer-group';
+                                        break;
+                                    case 'payment':
+                                        $icon = 'fas fa-money-bill-wave';
+                                        break;
+                                }
+
+                                $count++;
+                        ?>
+                                <div class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                                    <div class="activity-icon <?php echo $type_class; ?> mr-3">
+                                        <i class="<?php echo $icon; ?>"></i>
+                                    </div>
+
+                                    <div class="flex-1">
+                                        <h4 class="font-medium text-gray-800 text-sm mb-1">
+                                            <?php echo htmlspecialchars($activity['title'] ?? 'Activity'); ?>
+                                        </h4>
+                                        <p class="text-xs text-gray-600 line-clamp-1">
+                                            <?php echo htmlspecialchars($activity['description'] ?? 'No description'); ?>
+                                        </p>
+                                    </div>
+
+                                    <span class="text-xs text-gray-500 whitespace-nowrap ml-2">
+                                        <?php echo $time_ago; ?>
+                                    </span>
+                                </div>
+                            <?php endwhile; ?>
+
+                            <!-- View More -->
+                            <a href="/academy_management_system/admin/activity_logs.php"
+                                class="block text-center text-sm text-blue-600 hover:text-blue-800 mt-2 p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                                <i class="fas fa-external-link-alt mr-1"></i> View All Activities
+                            </a>
+
+                        <?php else: ?>
+                            <div class="flex flex-col items-center justify-center p-6 bg-gray-50 rounded-lg">
+                                <i class="fas fa-bell-slash text-gray-300 text-3xl mb-3"></i>
+                                <p class="text-sm font-medium text-gray-500 mb-1">No recent activities</p>
+                                <p class="text-xs text-gray-400">System activities will appear here</p>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
+
 
                 <!-- Quick Actions -->
                 <div class="chart-container">
@@ -505,16 +1062,16 @@ while ($row = mysqli_fetch_assoc($today_sessions_result)) {
                         <h3 class="text-lg font-semibold text-gray-800">Quick Actions</h3>
                     </div>
                     <div class="grid grid-cols-2 gap-3">
-                        <a href="sessions/add_session.php"
+                        <a href="announcements.php"
                             class="group p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-center">
                             <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center mx-auto mb-2 group-hover:bg-blue-50 transition-colors">
-                                <i class="fas fa-plus text-gray-600 group-hover:text-blue-600"></i>
+                                <i class="fas fa-bullhorn text-gray-600 group-hover:text-blue-600"></i>
                             </div>
-                            <p class="font-medium text-gray-800 text-sm">New Session</p>
-                            <p class="text-xs text-gray-500 mt-1">Schedule class</p>
+                            <p class="font-medium text-gray-800 text-sm">Create Announcement</p>
+                            <p class="text-xs text-gray-500 mt-1">Broadcast message</p>
                         </a>
 
-                        <a href="../enrollments/enroll_student.php"
+                        <a href="/academy_management_system/admin/users/add_student.php"
                             class="group p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-center">
                             <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center mx-auto mb-2 group-hover:bg-green-50 transition-colors">
                                 <i class="fas fa-user-plus text-gray-600 group-hover:text-green-600"></i>
@@ -523,7 +1080,7 @@ while ($row = mysqli_fetch_assoc($today_sessions_result)) {
                             <p class="text-xs text-gray-500 mt-1">New admission</p>
                         </a>
 
-                        <a href="../fees/fee_collection.php"
+                        <a href="/academy_management_system/admin/fees/fee_collection.php"
                             class="group p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-center">
                             <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center mx-auto mb-2 group-hover:bg-purple-50 transition-colors">
                                 <i class="fas fa-money-bill-wave text-gray-600 group-hover:text-purple-600"></i>
@@ -532,7 +1089,7 @@ while ($row = mysqli_fetch_assoc($today_sessions_result)) {
                             <p class="text-xs text-gray-500 mt-1"><?php echo number_format($pending_fees); ?> pending</p>
                         </a>
 
-                        <a href="../reports/student_report.php"
+                        <a href="/academy_management_system/admin/reports/student_report.php"
                             class="group p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-center">
                             <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center mx-auto mb-2 group-hover:bg-orange-50 transition-colors">
                                 <i class="fas fa-chart-bar text-gray-600 group-hover:text-orange-600"></i>
@@ -562,6 +1119,10 @@ while ($row = mysqli_fetch_assoc($today_sessions_result)) {
                 <span class="text-sm text-gray-500">
                     <i class="fas fa-users mr-1"></i>
                     Students: <?php echo $total_students; ?>
+                </span>
+                <span class="text-sm text-gray-500">
+                    <i class="fas fa-bell mr-1"></i>
+                    Activities: <?php echo $system_notifications; ?>
                 </span>
             </div>
         </div>
@@ -749,6 +1310,45 @@ while ($row = mysqli_fetch_assoc($today_sessions_result)) {
                     circle.style.strokeDashoffset = offset;
                 }, 500);
             });
+
+            // Clear notification badges when clicked
+            const systemNotificationButton = document.querySelectorAll('[x-data] button')[1];
+            const systemNotificationBadge = systemNotificationButton.querySelector('.absolute');
+
+            if (systemNotificationBadge) {
+                systemNotificationButton.addEventListener('click', function() {
+                    // Fade out animation
+                    systemNotificationBadge.style.transition = 'opacity 0.3s ease';
+                    systemNotificationBadge.style.opacity = '0';
+
+                    setTimeout(() => {
+                        // You can add AJAX call here to mark notifications as read in database
+                        // fetch('mark_activities_read.php', { method: 'POST' });
+
+                        // Remove badge after animation
+                        systemNotificationBadge.remove();
+                    }, 300);
+                });
+            }
+
+            const announcementButton = document.querySelectorAll('[x-data] button')[0];
+            const announcementBadge = announcementButton.querySelector('.absolute');
+
+            if (announcementBadge) {
+                announcementButton.addEventListener('click', function() {
+                    // Fade out animation
+                    announcementBadge.style.transition = 'opacity 0.3s ease';
+                    announcementBadge.style.opacity = '0';
+
+                    setTimeout(() => {
+                        // You can add AJAX call here to mark announcements as read
+                        // fetch('mark_announcements_read.php', { method: 'POST' });
+
+                        // Remove badge after animation
+                        announcementBadge.remove();
+                    }, 300);
+                });
+            }
         });
     </script>
 
