@@ -1,0 +1,102 @@
+
+├── database/
+│   └── schema.sql
+├── config/
+│   └── db.php
+├── includes/
+│   ├── navbar.php
+│   ├── footer.php
+│   ├── auth_check.php
+│   └── functions.php
+├── auth/
+│   ├── login.php
+│   ├── register.php
+│   └── logout.php
+├── assets/
+│   ├── css/
+│   │   └── style.css
+│   ├── js/
+│   │   └── script.js
+│   └── images/
+├── index.php
+├── admin/
+├── dashboard.php
+
+├── users/
+│   ├── students.php
+│   ├── add_student.php
+│   ├── edit_student.php
+│   ├── teachers.php
+│   ├── add_teacher.php
+│   └── edit_teacher.php
+
+├── skills/
+│   ├── skills.php
+│   ├── add_skill.php
+│   ├── edit_skill.php
+│   └── syllabus.php
+
+├── sessions/
+│   ├── sessions.php
+│   ├── add_session.php
+│   └── edit_session.php
+
+├── batches/
+│   ├── batches.php
+│   ├── add_batch.php
+│   ├── edit_batch.php
+│   └── assign_teacher.php
+
+├── enrollments/
+│   ├── enroll_student.php
+│   └── enrollment_list.php
+
+├── fees/
+│   ├── fee_structures.php
+│   ├── add_fee_structure.php
+│   ├── fee_collection.php
+│   ├── collect_fee.php
+│   └── fee_history.php
+
+├── expenses/
+│   ├── expenses.php
+│   ├── add_expense.php
+│   ├── edit_expense.php
+│   └── expense_categories.php
+donations/
+├── donations.php
+├── add_donation.php
+├── edit_donation.php
+└── delete_donation.php
+
+
+└── reports/
+    ├── student_report.php
+    ├── attendance_report.php
+    ├── fee_report.php
+    ├── expense_report.php
+    ├── donation_report.php
+    ├── profit_report.php
+    ├── teacher_report.php
+    └── batch_report.php
+
+
+├── announcements.php
+├── certificates.php
+
+├── teacher/
+│   ├── dashboard.php
+│   ├── my_batches.php
+│   ├── attendance.php
+│   ├── student_progress.php
+│   ├── quizzes.php
+│   └── syllabus.php
+├── student/
+│   ├── dashboard.php
+│   ├── my_courses.php
+│   ├── attendance.php
+│   ├── fees.php
+│   ├── quizzes.php
+│   ├── progress.php
+│   └── certificates.php
+└── README.md

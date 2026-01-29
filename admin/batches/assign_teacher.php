@@ -2,6 +2,12 @@
 require_once __DIR__ . '/../../config/db.php';
 
 
+// Check if user is admin
+if ($_SESSION['user_type'] !== 'admin') {
+    header("Location: ../auth/login.php");
+    exit;
+}
+
 if (!isset($_GET['batch_id'])) {
     header("Location: batches.php");
     exit;
@@ -13,7 +19,7 @@ $batch_id = intval($_GET['batch_id']);
    FETCH BATCH DETAILS
 =========================== */
 $batch_q = mysqli_query($conn, "
-    SELECT b.*, s.skill_name, se.session_name
+    SELECT b.*, s.skill_name, se.session_name, se.id as session_id
     FROM batches b
     JOIN skills s ON b.skill_id = s.id
     JOIN sessions se ON b.session_id = se.id
@@ -30,48 +36,76 @@ if (!$batch) {
 /* ===========================
    HANDLE ASSIGNMENT
 =========================== */
+$success_message = '';
+$error_message = '';
+
 if (isset($_POST['assign_teacher'])) {
-
     $teacher_id = intval($_POST['teacher_id']);
+    $session_id = $batch['session_id'];
 
-    // Inactivate old teacher assignment
-    mysqli_query($conn, "
-        UPDATE batch_teachers 
-        SET status = 'inactive' 
-        WHERE batch_id = $batch_id AND status = 'active'
+    // Validate teacher exists and is active
+    $teacher_check = mysqli_query($conn, "
+        SELECT id, name FROM teachers 
+        WHERE id = $teacher_id AND status = 'active'
     ");
 
-    // Assign new teacher
-    mysqli_query($conn, "
-        INSERT INTO batch_teachers (batch_id, teacher_id)
-        VALUES ($batch_id, $teacher_id)
-    ");
+    if (mysqli_num_rows($teacher_check) > 0) {
+        // Check if teacher is already assigned to this batch
+        $existing_assignment = mysqli_query($conn, "
+            SELECT id FROM teacher_assignments 
+            WHERE teacher_id = $teacher_id 
+            AND batch_id = $batch_id
+        ");
 
-    header("Location: batches.php?assigned=success");
-    exit;
+        if (mysqli_num_rows($existing_assignment) > 0) {
+            // Update existing assignment
+            mysqli_query($conn, "
+                UPDATE teacher_assignments 
+                SET assigned_date = NOW()
+                WHERE teacher_id = $teacher_id 
+                AND batch_id = $batch_id
+            ");
+
+            $success_message = "Teacher assignment updated successfully!";
+        } else {
+            // Create new assignment
+            mysqli_query($conn, "
+                INSERT INTO teacher_assignments (teacher_id, batch_id, session_id, assigned_date)
+                VALUES ($teacher_id, $batch_id, $session_id, NOW())
+            ");
+
+            $success_message = "Teacher assigned successfully!";
+        }
+
+        // Redirect with success message
+        header("Location: batches.php?assigned=success&teacher_id=$teacher_id&batch_id=$batch_id");
+        exit;
+    } else {
+        $error_message = "Selected teacher is not active or does not exist!";
+    }
 }
 
 /* ===========================
    FETCH TEACHERS
 =========================== */
 $teachers = mysqli_query($conn, "
-    SELECT id, name
+    SELECT id, name, teacher_code, qualification
     FROM teachers
     WHERE status = 'active'
     ORDER BY name
 ");
 
-
 /* ===========================
    FETCH CURRENT TEACHER
 =========================== */
 $current_teacher_q = mysqli_query($conn, "
-    SELECT t.id, t.name
-    FROM batch_teachers bt
-    JOIN teachers t ON bt.teacher_id = t.id
-    WHERE bt.batch_id = $batch_id AND bt.status = 'active'
+    SELECT t.id, t.name, t.teacher_code, t.qualification
+    FROM teacher_assignments ta
+    JOIN teachers t ON ta.teacher_id = t.id
+    WHERE ta.batch_id = $batch_id
+    ORDER BY ta.assigned_date DESC
+    LIMIT 1
 ");
-
 
 $current_teacher = mysqli_fetch_assoc($current_teacher_q);
 ?>
@@ -104,8 +138,6 @@ $current_teacher = mysqli_fetch_assoc($current_teacher_q);
             background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
             min-height: 100vh;
         }
-
-        
 
         .form-card {
             background: white;
@@ -153,6 +185,19 @@ $current_teacher = mysqli_fetch_assoc($current_teacher_q);
             transform: translateY(-2px);
             box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
         }
+
+        /* Alert Messages */
+        .alert-success {
+            background: #d1fae5;
+            border: 1px solid #10b981;
+            color: #065f46;
+        }
+
+        .alert-error {
+            background: #fee2e2;
+            border: 1px solid #ef4444;
+            color: #7f1d1d;
+        }
     </style>
 </head>
 
@@ -183,6 +228,31 @@ $current_teacher = mysqli_fetch_assoc($current_teacher_q);
                     </a>
                 </div>
             </div>
+
+            <!-- Success/Error Messages -->
+            <?php if ($success_message): ?>
+                <div class="mb-6 p-4 rounded-lg alert-success flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <i class="fas fa-check-circle text-lg"></i>
+                        <span><?php echo $success_message; ?></span>
+                    </div>
+                    <button onclick="this.parentElement.style.display='none'" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($error_message): ?>
+                <div class="mb-6 p-4 rounded-lg alert-error flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <i class="fas fa-exclamation-circle text-lg"></i>
+                        <span><?php echo $error_message; ?></span>
+                    </div>
+                    <button onclick="this.parentElement.style.display='none'" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            <?php endif; ?>
 
             <!-- Batch Information -->
             <div class="max-w-4xl mx-auto mb-8">
@@ -223,21 +293,30 @@ $current_teacher = mysqli_fetch_assoc($current_teacher_q);
                             <div class="flex items-center justify-between">
                                 <div>
                                     <h4 class="font-medium text-green-800 mb-1">Currently Assigned Teacher</h4>
-                                    <p class="text-green-600">
+                                    <p class="text-green-600 mb-1">
                                         <i class="fas fa-chalkboard-teacher mr-2"></i>
                                         <?= htmlspecialchars($current_teacher['name']) ?>
                                     </p>
-                                    <?php if (!empty($current_teacher['name'])): ?>
-                                        <p class="text-sm text-green-500 mt-1">
-                                            <i class="fas fa-user mr-2"></i>
-                                            <?= htmlspecialchars($current_teacher['name']) ?>
-                                        </p>
-
-
-                                    <?php endif; ?>
+                                    <p class="text-sm text-green-500">
+                                        <i class="fas fa-id-card mr-1"></i>
+                                        Code: <?= htmlspecialchars($current_teacher['teacher_code']) ?>
+                                        | <i class="fas fa-graduation-cap ml-2 mr-1"></i>
+                                        <?= htmlspecialchars($current_teacher['qualification']) ?>
+                                    </p>
                                 </div>
                                 <div class="text-xs bg-green-100 text-green-800 px-3 py-1 rounded-full">
-                                    Currently Assigned
+                                    <?php
+                                    // Get assignment date
+                                    $date_q = mysqli_query($conn, "
+                        SELECT DATE_FORMAT(assigned_date, '%d %b %Y') as assigned_date 
+                        FROM teacher_assignments 
+                        WHERE teacher_id = {$current_teacher['id']} 
+                        AND batch_id = $batch_id
+                        ORDER BY assigned_date DESC LIMIT 1
+                    ");
+                                    $date_row = mysqli_fetch_assoc($date_q);
+                                    ?>
+                                    Assigned on: <?= $date_row['assigned_date'] ?? 'Recently' ?>
                                 </div>
                             </div>
                         </div>
@@ -275,35 +354,42 @@ $current_teacher = mysqli_fetch_assoc($current_teacher_q);
                         <div class="space-y-2">
                             <label class="block text-sm font-medium text-gray-700 mb-4">
                                 <i class="fas fa-chalkboard-teacher text-purple-500 mr-2"></i>
-                                Available Teachers
+                                Available Teachers (<?php echo mysqli_num_rows($teachers); ?>)
                             </label>
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                                <?php while ($t = mysqli_fetch_assoc($teachers)): ?>
-                                    <label class="teacher-card p-4 cursor-pointer hover:border-purple-300">
+                                <?php
+                                // Reset pointer for teachers
+                                mysqli_data_seek($teachers, 0);
+                                while ($t = mysqli_fetch_assoc($teachers)):
+                                ?>
+                                    <label class="teacher-card p-4 cursor-pointer hover:border-purple-300 transition-all duration-200">
                                         <div class="flex items-start gap-3">
-                                            <div class="flex-shrink-0">
+                                            <div class="flex-shrink-0 pt-1">
                                                 <input type="radio"
                                                     name="teacher_id"
                                                     value="<?= $t['id'] ?>"
                                                     class="h-4 w-4 text-purple-600 border-gray-300 focus:ring-purple-500"
-                                                    <?= $current_teacher && $current_teacher['name'] == $t['name'] ? 'checked' : '' ?>
+                                                    <?= $current_teacher && $current_teacher['id'] == $t['id'] ? 'checked' : '' ?>
                                                     required>
                                             </div>
                                             <div class="flex-1">
                                                 <div class="flex justify-between items-start">
                                                     <h4 class="font-medium text-gray-900"><?= htmlspecialchars($t['name']) ?></h4>
-                                                    <?php if ($current_teacher && $current_teacher['name'] == $t['name']): ?>
+                                                    <?php if ($current_teacher && $current_teacher['id'] == $t['id']): ?>
                                                         <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
                                                             Current
                                                         </span>
                                                     <?php endif; ?>
                                                 </div>
                                                 <p class="text-sm text-gray-500 mt-1">
-                                                    <i class="fas fa-user mr-1"></i>
-                                                    <?= htmlspecialchars($t['name']) ?>
+                                                    <i class="fas fa-id-card mr-1"></i>
+                                                    <?= htmlspecialchars($t['teacher_code']) ?>
                                                 </p>
-
+                                                <p class="text-sm text-gray-500 mt-1">
+                                                    <i class="fas fa-graduation-cap mr-1"></i>
+                                                    <?= htmlspecialchars($t['qualification']) ?>
+                                                </p>
                                             </div>
                                         </div>
                                     </label>
@@ -312,25 +398,25 @@ $current_teacher = mysqli_fetch_assoc($current_teacher_q);
                         </div>
 
                         <!-- Important Notes -->
-                        <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+                        <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
                             <div class="flex items-start gap-3">
-                                <div class="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                    <i class="fas fa-exclamation-circle text-yellow-600"></i>
+                                <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                    <i class="fas fa-info-circle text-blue-600"></i>
                                 </div>
                                 <div>
-                                    <h4 class="font-medium text-yellow-800 mb-1">Important Information</h4>
-                                    <ul class="text-sm text-yellow-600 space-y-1">
+                                    <h4 class="font-medium text-blue-800 mb-1">How Teacher Assignment Works</h4>
+                                    <ul class="text-sm text-blue-600 space-y-1">
                                         <li class="flex items-center gap-2">
-                                            <i class="fas fa-info-circle text-xs"></i>
-                                            <span>Assigning a new teacher will deactivate the current teacher assignment</span>
+                                            <i class="fas fa-check-circle text-xs"></i>
+                                            <span>Selecting a new teacher will update the existing assignment</span>
                                         </li>
                                         <li class="flex items-center gap-2">
-                                            <i class="fas fa-info-circle text-xs"></i>
+                                            <i class="fas fa-check-circle text-xs"></i>
                                             <span>Only active teachers are shown in the list</span>
                                         </li>
                                         <li class="flex items-center gap-2">
-                                            <i class="fas fa-info-circle text-xs"></i>
-                                            <span>You can change the teacher anytime by re-assigning</span>
+                                            <i class="fas fa-check-circle text-xs"></i>
+                                            <span>Teacher will see this batch in their dashboard immediately</span>
                                         </li>
                                     </ul>
                                 </div>
@@ -342,8 +428,8 @@ $current_teacher = mysqli_fetch_assoc($current_teacher_q);
                             <button type="submit"
                                 name="assign_teacher"
                                 class="flex-1 btn-primary px-6 py-3 rounded-lg font-medium flex items-center justify-center gap-2">
-                                <i class="fas fa-user-tie"></i>
-                                Assign Teacher
+                                <i class="fas fa-save"></i>
+                                <?= $current_teacher ? 'Update Assignment' : 'Assign Teacher' ?>
                             </button>
                             <a href="batches.php"
                                 class="flex-1 bg-gray-100 text-gray-700 px-6 py-3 rounded-lg font-medium hover:bg-gray-200 transition-colors flex items-center justify-center gap-2">
@@ -356,8 +442,6 @@ $current_teacher = mysqli_fetch_assoc($current_teacher_q);
             </div>
         </main>
     </div>
-
-    <?php include __DIR__ . '/../../includes/footer.php'; ?>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {

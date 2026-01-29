@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     break;
                 case 2:
                     $_SESSION['user_type'] = 'teacher';
-                    redirect("/teacher/dashboard.php");
+                    redirect("/academy_management_system/teacher/dashboard.php");
                     break;
                 case 3:
                     $_SESSION['user_type'] = 'student';
@@ -336,38 +336,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </form>
 
                 <
-                
-    <?php include "../includes/footer.php"; ?>
 
-    <script>
-        function togglePassword() {
-            const passwordField = document.getElementById('password');
-            const toggleIcon = document.getElementById('toggleIcon');
+                    <?php include "../includes/footer.php"; ?>
 
-            if (passwordField.type === 'password') {
-                passwordField.type = 'text';
-                toggleIcon.classList.remove('fa-eye');
-                toggleIcon.classList.add('fa-eye-slash');
-            } else {
-                passwordField.type = 'password';
-                toggleIcon.classList.remove('fa-eye-slash');
-                toggleIcon.classList.add('fa-eye');
-            }
-        }
+                    <script>
+                    function togglePassword() {
+                    const passwordField = document.getElementById('password');
+                    const toggleIcon = document.getElementById('toggleIcon');
 
-        // Add animation to form
-        document.addEventListener('DOMContentLoaded', function() {
-            const inputs = document.querySelectorAll('.input-field');
-            inputs.forEach(input => {
-                input.addEventListener('focus', function() {
+                    if (passwordField.type === 'password') {
+                    passwordField.type = 'text';
+                    toggleIcon.classList.remove('fa-eye');
+                    toggleIcon.classList.add('fa-eye-slash');
+                    } else {
+                    passwordField.type = 'password';
+                    toggleIcon.classList.remove('fa-eye-slash');
+                    toggleIcon.classList.add('fa-eye');
+                    }
+                    }
+
+                    // Add animation to form
+                    document.addEventListener('DOMContentLoaded', function() {
+                    const inputs = document.querySelectorAll('.input-field');
+                    inputs.forEach(input => {
+                    input.addEventListener('focus', function() {
                     this.parentElement.classList.add('input-focused');
-                });
-                input.addEventListener('blur', function() {
+                    });
+                    input.addEventListener('blur', function() {
                     this.parentElement.classList.remove('input-focused');
-                });
-            });
-        });
-    </script>
+                    });
+                    });
+                    });
+                    </script>
 </body>
 
 </html>
