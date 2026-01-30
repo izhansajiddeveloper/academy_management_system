@@ -171,16 +171,7 @@
                             <span class="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500"></span>
                         <?php endif; ?>
                     </a>
-                    <a href="/academy_management_system/teacher/quiz_results.php"
-                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/70 transition-colors text-sm <?php echo (basename($_SERVER['PHP_SELF']) == 'quiz_results.php') ? 'text-blue-300 bg-gray-800/50' : 'text-gray-300'; ?>">
-                        <div class="w-6 h-6 rounded flex items-center justify-center <?php echo (basename($_SERVER['PHP_SELF']) == 'quiz_results.php') ? 'bg-blue-500/20' : 'bg-gray-700'; ?>">
-                            <i class="fas fa-chart-bar text-xs"></i>
-                        </div>
-                        <span>Quiz Results</span>
-                        <?php if (basename($_SERVER['PHP_SELF']) == 'quiz_results.php'): ?>
-                            <span class="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                        <?php endif; ?>
-                    </a>
+                    
                 </div>
             </div>
 
@@ -245,7 +236,7 @@
             </div>
 
             <!-- Materials -->
-            <a href="/academy_management_system/teacher/materials.php"
+            <a href="/academy_management_system/teacher/teaching_materials.php"
                 class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800/70 hover:shadow-md transition-all duration-200 <?php echo (basename($_SERVER['PHP_SELF']) == 'materials.php') ? 'bg-gradient-to-r from-blue-900/30 to-purple-900/30 border-l-4 border-blue-500 shadow-inner' : ''; ?>">
                 <div class="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center <?php echo (basename($_SERVER['PHP_SELF']) == 'materials.php') ? 'bg-blue-500/20' : ''; ?>">
                     <i class="fas fa-file-pdf text-sm <?php echo (basename($_SERVER['PHP_SELF']) == 'materials.php') ? 'text-blue-400' : 'text-gray-300'; ?>"></i>

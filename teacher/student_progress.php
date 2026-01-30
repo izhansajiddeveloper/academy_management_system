@@ -24,6 +24,70 @@ if (!$teacher) {
 
 $teacher_id = $teacher['id'];
 
+// Handle overall grade and comments update
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_report'])) {
+    $student_id = intval($_POST['student_id']);
+    $batch_id = intval($_POST['batch_id']);
+    $overall_grade = trim($_POST['overall_grade']);
+    $comments = trim($_POST['comments']);
+
+    // Verify teacher has access to this student
+    $verify_query = "
+    SELECT 1 FROM student_enrollments se
+    JOIN teacher_assignments ta ON se.batch_id = ta.batch_id
+    WHERE se.student_id = ? AND se.batch_id = ? AND ta.teacher_id = ?
+    ";
+
+    $stmt_verify = $conn->prepare($verify_query);
+    $stmt_verify->bind_param("iii", $student_id, $batch_id, $teacher_id);
+    $stmt_verify->execute();
+
+    if ($stmt_verify->get_result()->num_rows > 0) {
+        // Check if progress report record exists
+        $check_query = "SELECT id FROM student_progress WHERE student_id = ? AND batch_id = ?";
+        $stmt_check = $conn->prepare($check_query);
+        $stmt_check->bind_param("ii", $student_id, $batch_id);
+        $stmt_check->execute();
+        $exists = $stmt_check->get_result()->num_rows > 0;
+
+        if ($exists) {
+            // Update existing record
+            $update_query = "
+            UPDATE student_progress SET 
+                overall_grade = ?,
+                comments = ?,
+                report_date = CURDATE(),
+                updated_at = CURRENT_TIMESTAMP
+            WHERE student_id = ? AND batch_id = ?
+            ";
+
+            $stmt = $conn->prepare($update_query);
+            $stmt->bind_param("ssii", $overall_grade, $comments, $student_id, $batch_id);
+        } else {
+            // Insert new record
+            $insert_query = "
+            INSERT INTO student_progress (student_id, batch_id, teacher_id, overall_grade, comments, report_date)
+            VALUES (?, ?, ?, ?, ?, CURDATE())
+            ";
+
+            $stmt = $conn->prepare($insert_query);
+            $stmt->bind_param("iiiss", $student_id, $batch_id, $teacher_id, $overall_grade, $comments);
+        }
+
+        if ($stmt->execute()) {
+            $_SESSION['success_message'] = "Student progress report updated successfully!";
+        } else {
+            $_SESSION['error_message'] = "Failed to update student progress report.";
+        }
+    } else {
+        $_SESSION['error_message'] = "Unauthorized to update this student's progress.";
+    }
+
+    // Redirect to prevent form resubmission
+    header("Location: student_progress.php?batch_id={$batch_id}&student_id={$student_id}");
+    exit;
+}
+
 // Get filter parameters
 $batch_filter = isset($_GET['batch_id']) ? intval($_GET['batch_id']) : 0;
 $skill_filter = isset($_GET['skill_id']) ? intval($_GET['skill_id']) : 0;
@@ -64,10 +128,14 @@ if ($batch_filter > 0) {
         s.name,
         s.student_code,
         s.phone,
-        u.email
+        u.email,
+        sp.overall_grade,
+        sp.comments,
+        sp.report_date
     FROM student_enrollments se
     JOIN students s ON se.student_id = s.id
     JOIN users u ON s.user_id = u.id
+    LEFT JOIN student_progress sp ON se.student_id = sp.student_id AND se.batch_id = sp.batch_id
     WHERE se.batch_id = ? AND se.status = 'active'
     ORDER BY s.name
     ";
@@ -89,7 +157,7 @@ if ($batch_filter > 0) {
     }
 }
 
-// Handle progress update
+// Handle skill progress update
 $success_message = '';
 $error_message = '';
 
@@ -418,13 +486,17 @@ if ($batch_filter > 0) {
         sk.skill_name,
         b.batch_name,
         se.session_name,
-        t.name as updated_by_name
+        t.name as updated_by_name,
+        spr.overall_grade,
+        spr.comments as report_comments,
+        spr.report_date
     FROM skill_progress sp
     JOIN students s ON sp.student_id = s.id
     JOIN skills sk ON sp.skill_id = sk.id
     JOIN batches b ON sp.batch_id = b.id
     JOIN sessions se ON sp.session_id = se.id
     LEFT JOIN teachers t ON sp.updated_by = t.id
+    LEFT JOIN student_progress spr ON s.id = spr.student_id AND b.id = spr.batch_id
     WHERE sp.batch_id = ? AND sp.updated_by = ?
     ";
 
@@ -658,6 +730,46 @@ if ($batch_filter > 0) {
 
         .score-poor {
             background: linear-gradient(90deg, #ef4444, #f87171);
+        }
+
+        .grade-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .grade-A {
+            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+            color: #065f46;
+            border: 1px solid #10b981;
+        }
+
+        .grade-B {
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            color: #1e40af;
+            border: 1px solid #3b82f6;
+        }
+
+        .grade-C {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
+        .grade-D {
+            background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+            color: #4b5563;
+            border: 1px solid #9ca3af;
+        }
+
+        .grade-F {
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            color: #991b1b;
+            border: 1px solid #ef4444;
         }
     </style>
 </head>
@@ -920,11 +1032,11 @@ if ($batch_filter > 0) {
                                 Click on a student to view details and update progress
                             </p>
                         </div>
-                        <div>
+                        <div class="flex gap-3">
                             <button onclick="showUpdateProgressModal()"
                                 class="btn-success px-6 py-3 rounded-xl font-bold text-lg flex items-center gap-3">
                                 <i class="fas fa-plus"></i>
-                                Add New Progress
+                                Add Skill Progress
                             </button>
                         </div>
                     </div>
@@ -936,6 +1048,7 @@ if ($batch_filter > 0) {
                                     <tr class="bg-gradient-to-r from-gray-100 to-gray-50 text-left">
                                         <th class="py-4 px-6 font-bold text-gray-700 text-sm uppercase tracking-wider">Student</th>
                                         <th class="py-4 px-6 font-bold text-gray-700 text-sm uppercase tracking-wider">Progress</th>
+                                        <th class="py-4 px-6 font-bold text-gray-700 text-sm uppercase tracking-wider">Overall Grade</th>
                                         <th class="py-4 px-6 font-bold text-gray-700 text-sm uppercase tracking-wider">Performance Level</th>
                                         <th class="py-4 px-6 font-bold text-gray-700 text-sm uppercase tracking-wider">Scores</th>
                                         <th class="py-4 px-6 font-bold text-gray-700 text-sm uppercase tracking-wider">Status</th>
@@ -956,6 +1069,28 @@ if ($batch_filter > 0) {
                                             $progress_color = 'text-yellow-600';
                                         } else {
                                             $progress_color = 'text-red-600';
+                                        }
+
+                                        // Grade badge class
+                                        $grade_badge_class = '';
+                                        if ($row['overall_grade']) {
+                                            switch (strtoupper($row['overall_grade'])) {
+                                                case 'A':
+                                                    $grade_badge_class = 'grade-A';
+                                                    break;
+                                                case 'B':
+                                                    $grade_badge_class = 'grade-B';
+                                                    break;
+                                                case 'C':
+                                                    $grade_badge_class = 'grade-C';
+                                                    break;
+                                                case 'D':
+                                                    $grade_badge_class = 'grade-D';
+                                                    break;
+                                                case 'F':
+                                                    $grade_badge_class = 'grade-F';
+                                                    break;
+                                            }
                                         }
                                         ?>
                                         <tr class="hover:bg-gray-50 transition-colors cursor-pointer"
@@ -991,11 +1126,32 @@ if ($batch_filter > 0) {
                                                     <div class="h-3 bg-gray-200 rounded-full overflow-hidden">
                                                         <div class="h-full rounded-full bg-gradient-to-r 
                                                             <?php echo $row['progress_percent'] >= 80 ? 'from-green-500 to-emerald-500' : ($row['progress_percent'] >= 50 ? 'from-yellow-500 to-amber-500' :
-                                                                    'from-red-500 to-rose-500'); ?>"
+                                                                'from-red-500 to-rose-500'); ?>"
                                                             style="width: <?php echo min($row['progress_percent'], 100); ?>%">
                                                         </div>
                                                     </div>
                                                 </div>
+                                            </td>
+                                            <td class="py-5 px-6">
+                                                <?php if ($row['overall_grade']): ?>
+                                                    <div class="<?php echo $grade_badge_class; ?> grade-badge">
+                                                        <i class="fas fa-award"></i>
+                                                        <?php echo $row['overall_grade']; ?>
+                                                    </div>
+                                                    <?php if ($row['report_date']): ?>
+                                                        <div class="text-xs text-gray-500 mt-1">
+                                                            <?php echo date('M d, Y', strtotime($row['report_date'])); ?>
+                                                        </div>
+                                                    <?php endif; ?>
+                                                <?php else: ?>
+                                                    <span class="text-gray-400 italic text-sm">Not graded</span>
+                                                    <div class="mt-1">
+                                                        <button onclick="event.stopPropagation(); showUpdateReportModal(<?php echo $row['student_id']; ?>, '<?php echo htmlspecialchars($row['student_name']); ?>')"
+                                                            class="text-xs text-primary hover:underline">
+                                                            Add Grade
+                                                        </button>
+                                                    </div>
+                                                <?php endif; ?>
                                             </td>
                                             <td class="py-5 px-6">
                                                 <?php
@@ -1103,12 +1259,12 @@ if ($batch_filter > 0) {
                                             <td class="py-5 px-6">
                                                 <div class="flex items-center gap-2">
                                                     <button onclick="event.stopPropagation(); editProgress(<?php echo htmlspecialchars(json_encode($row)); ?>)"
-                                                        class="px-4 py-2 bg-gradient-to-r from-primary to-primary-dark text-blue rounded-lg hover:opacity-90 transition-opacity">
+                                                        class="px-4 py-2 bg-gradient-to-r from-primary to-primary-dark text-blue-500 rounded-lg hover:opacity-90 transition-opacity">
                                                         <i class="fas fa-edit mr-1"></i> Edit
                                                     </button>
-                                                    <button onclick="event.stopPropagation(); deleteProgress(<?php echo $row['id']; ?>, '<?php echo htmlspecialchars($row['student_name']); ?>')"
-                                                        class="px-4 py-2 bg-gradient-to-r from-red-500 to-rose-500 text-white rounded-lg hover:opacity-90 transition-opacity">
-                                                        <i class="fas fa-trash mr-1"></i>
+                                                    <button onclick="event.stopPropagation(); showUpdateReportModal(<?php echo $row['student_id']; ?>, '<?php echo htmlspecialchars($row['student_name']); ?>', '<?php echo $row['overall_grade']; ?>', '<?php echo htmlspecialchars($row['report_comments']); ?>')"
+                                                        class="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg hover:opacity-90 transition-opacity">
+                                                        <i class="fas fa-file-alt mr-1"></i> Report
                                                     </button>
                                                 </div>
                                             </td>
@@ -1319,6 +1475,60 @@ if ($batch_filter > 0) {
         </div>
     </div>
 
+    <!-- Update Report Modal -->
+    <div id="updateReportModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-card max-w-md w-full">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-8">
+                    <h3 class="text-2xl font-bold text-gray-800" id="reportModalTitle">Update Student Report</h3>
+                    <button onclick="closeUpdateReportModal()" class="text-gray-500 hover:text-gray-700 text-2xl">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <form method="POST" action="">
+                    <input type="hidden" name="student_id" id="report_student_id">
+                    <input type="hidden" name="batch_id" value="<?php echo $batch_filter; ?>">
+
+                    <div class="space-y-6">
+                        <div id="reportStudentInfo" class="p-4 bg-gray-50 rounded-lg mb-4">
+                            <!-- Student info will be filled by JavaScript -->
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Overall Grade *</label>
+                            <select name="overall_grade" id="overall_grade" class="w-full form-input px-4 py-3 rounded-lg" required>
+                                <option value="">Select Grade</option>
+                                <option value="A">A - Excellent</option>
+                                <option value="B">B - Good</option>
+                                <option value="C">C - Average</option>
+                                <option value="D">D - Below Average</option>
+                                <option value="F">F - Fail</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Comments</label>
+                            <textarea name="comments" id="comments" class="w-full form-input px-4 py-3 rounded-lg" rows="4"
+                                placeholder="Enter detailed comments about student's performance, areas of improvement, etc..."></textarea>
+                        </div>
+
+                        <div class="flex justify-end gap-4 pt-6 border-t">
+                            <button type="button" onclick="closeUpdateReportModal()"
+                                class="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-medium">
+                                Cancel
+                            </button>
+                            <button type="submit" name="update_report"
+                                class="px-6 py-3 btn-success rounded-lg font-medium">
+                                Save Report
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Student Details Modal Functions
         function showStudentDetails(studentData) {
@@ -1368,6 +1578,32 @@ if ($batch_filter > 0) {
                     break;
             }
 
+            // Grade badge
+            let gradeBadge = '';
+            if (studentData.overall_grade) {
+                let gradeClass = '';
+                switch (studentData.overall_grade.toUpperCase()) {
+                    case 'A':
+                        gradeClass = 'grade-A';
+                        break;
+                    case 'B':
+                        gradeClass = 'grade-B';
+                        break;
+                    case 'C':
+                        gradeClass = 'grade-C';
+                        break;
+                    case 'D':
+                        gradeClass = 'grade-D';
+                        break;
+                    case 'F':
+                        gradeClass = 'grade-F';
+                        break;
+                }
+                gradeBadge = `<span class="${gradeClass} grade-badge"><i class="fas fa-award"></i> ${studentData.overall_grade}</span>`;
+            } else {
+                gradeBadge = '<span class="text-gray-400 italic">Not graded yet</span>';
+            }
+
             // Status badge
             let statusBadge = '';
             switch (studentData.status) {
@@ -1413,26 +1649,33 @@ if ($batch_filter > 0) {
                         
                         <div class="card p-6">
                             <h4 class="font-bold text-gray-800 mb-4 flex items-center gap-2">
-                                <i class="fas fa-chart-simple text-primary"></i>
-                                Overall Performance
+                                <i class="fas fa-file-alt text-primary"></i>
+                                Overall Report
                             </h4>
                             <div class="space-y-4">
-                                <div>
-                                    <div class="flex justify-between items-center mb-2">
-                                        <span class="text-gray-600">Performance Level:</span>
-                                        ${performanceBadge}
-                                    </div>
-                                    <div class="flex justify-between items-center mb-2">
-                                        <span class="text-gray-600">Overall Score:</span>
-                                        <span class="font-bold text-lg ${studentData.overall_performance >= 60 ? 'text-green-600' : 'text-red-600'}">
-                                            ${studentData.overall_performance}%
-                                        </span>
-                                    </div>
-                                    <div class="flex justify-between items-center">
-                                        <span class="text-gray-600">Status:</span>
-                                        ${statusBadge}
-                                    </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-gray-600">Overall Grade:</span>
+                                    ${gradeBadge}
                                 </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-gray-600">Performance Level:</span>
+                                    ${performanceBadge}
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-gray-600">Overall Score:</span>
+                                    <span class="font-bold text-lg ${studentData.overall_performance >= 60 ? 'text-green-600' : 'text-red-600'}">
+                                        ${studentData.overall_performance}%
+                                    </span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-gray-600">Status:</span>
+                                    ${statusBadge}
+                                </div>
+                                ${studentData.report_date ? `
+                                <div class="text-sm text-gray-500 border-t pt-3">
+                                    Last Report: ${new Date(studentData.report_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                                </div>
+                                ` : ''}
                             </div>
                         </div>
                     </div>
@@ -1496,14 +1739,27 @@ if ($batch_filter > 0) {
                         </div>
                     </div>
                     
-                    <!-- Remarks -->
+                    <!-- Report Comments -->
+                    ${studentData.report_comments ? `
                     <div class="card p-6">
                         <h4 class="font-bold text-gray-800 mb-4 flex items-center gap-2">
                             <i class="fas fa-comment-alt text-primary"></i>
-                            Teacher Remarks
+                            Teacher Report Comments
                         </h4>
                         <div class="bg-gray-50 p-4 rounded-lg">
-                            ${studentData.remarks ? `<p class="text-gray-700">${studentData.remarks}</p>` : 
+                            <p class="text-gray-700 whitespace-pre-wrap">${studentData.report_comments}</p>
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    <!-- Remarks -->
+                    <div class="card p-6">
+                        <h4 class="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            <i class="fas fa-sticky-note text-primary"></i>
+                            Progress Remarks
+                        </h4>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            ${studentData.remarks ? `<p class="text-gray-700 whitespace-pre-wrap">${studentData.remarks}</p>` : 
                               `<p class="text-gray-500 italic">No remarks provided yet.</p>`}
                         </div>
                     </div>
@@ -1545,6 +1801,10 @@ if ($batch_filter > 0) {
                         <button onclick="editProgress(${JSON.stringify(studentData)})"
                                 class="px-6 py-3 bg-gradient-to-r from-primary to-primary-dark text-white rounded-lg hover:opacity-90 transition-opacity">
                             <i class="fas fa-edit mr-2"></i> Edit Progress
+                        </button>
+                        <button onclick="showUpdateReportModal(${studentData.student_id}, '${studentData.student_name}', '${studentData.overall_grade || ''}', \`${studentData.report_comments || ''}\`)"
+                                class="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg hover:opacity-90 transition-opacity">
+                            <i class="fas fa-file-alt mr-2"></i> Update Report
                         </button>
                         <button onclick="closeStudentDetails()"
                                 class="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg">
@@ -1623,23 +1883,58 @@ if ($batch_filter > 0) {
             document.getElementById('updateProgressModal').classList.remove('flex');
         }
 
-        // Delete Progress Function
-        function deleteProgress(progressId, studentName) {
-            if (confirm(`Are you sure you want to delete progress record for ${studentName}? This action cannot be undone.`)) {
-                // Create a form and submit it
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = 'delete_progress.php';
-
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = 'progress_id';
-                input.value = progressId;
-
-                form.appendChild(input);
-                document.body.appendChild(form);
-                form.submit();
+        // Update Report Modal Functions
+        function showUpdateReportModal(studentId, studentName, currentGrade = '', currentComments = '') {
+            if (<?php echo $batch_filter; ?> === 0) {
+                alert('Please select a batch first.');
+                return;
             }
+
+            const modal = document.getElementById('updateReportModal');
+            const modalTitle = document.getElementById('reportModalTitle');
+            const studentInfo = document.getElementById('reportStudentInfo');
+
+            // Set student info
+            document.getElementById('report_student_id').value = studentId;
+            studentInfo.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-r from-primary/20 to-primary/10 rounded-full flex items-center justify-center">
+                        <i class="fas fa-user-graduate text-primary"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-gray-800">${studentName}</h4>
+                        <p class="text-sm text-gray-500">Batch: <?php
+                                                                if ($batch_filter > 0) {
+                                                                    $assigned_batches->data_seek(0);
+                                                                    $batch = $assigned_batches->fetch_assoc();
+                                                                    echo htmlspecialchars($batch['batch_name']);
+                                                                }
+                                                                ?></p>
+                    </div>
+                </div>
+            `;
+
+            // Set current values if they exist
+            if (currentGrade) {
+                document.getElementById('overall_grade').value = currentGrade;
+            } else {
+                document.getElementById('overall_grade').value = '';
+            }
+
+            if (currentComments) {
+                document.getElementById('comments').value = currentComments;
+            } else {
+                document.getElementById('comments').value = '';
+            }
+
+            modalTitle.textContent = currentGrade ? 'Update Student Report' : 'Add Student Report';
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeUpdateReportModal() {
+            document.getElementById('updateReportModal').classList.add('hidden');
+            document.getElementById('updateReportModal').classList.remove('flex');
         }
 
         // Helper function to get score color
@@ -1649,27 +1944,6 @@ if ($batch_filter > 0) {
             if (score >= 40) return 'from-yellow-500 to-amber-500';
             return 'from-red-500 to-rose-500';
         }
-
-        // Auto-calculate progress percentage
-        document.addEventListener('DOMContentLoaded', function() {
-            const topicsCompleted = document.getElementById('topics_completed');
-            const totalTopics = document.getElementById('total_topics');
-
-            if (topicsCompleted && totalTopics) {
-                function calculateProgress() {
-                    const completed = parseFloat(topicsCompleted.value) || 0;
-                    const total = parseFloat(totalTopics.value) || 1;
-                    const progress = total > 0 ? Math.round((completed / total) * 10000) / 100 : 0;
-
-                    // You can display this somewhere or store it in a hidden field
-                    // For now, we'll just log it
-                    console.log('Progress:', progress + '%');
-                }
-
-                topicsCompleted.addEventListener('input', calculateProgress);
-                totalTopics.addEventListener('input', calculateProgress);
-            }
-        });
     </script>
 
 </body>
