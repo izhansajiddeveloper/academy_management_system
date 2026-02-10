@@ -296,7 +296,7 @@ if ($is_edit) {
                         </p>
                     </div>
                     <div>
-                        <a href="my_quiz.php" class="text-gray-600 hover:text-gray-800">
+                        <a href="quizzes.php" class="text-gray-600 hover:text-gray-800">
                             <i class="fas fa-arrow-left mr-2"></i> Back to Quizzes
                         </a>
                     </div>
