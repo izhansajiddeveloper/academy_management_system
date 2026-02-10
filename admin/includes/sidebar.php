@@ -138,16 +138,7 @@
                             <span class="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500"></span>
                         <?php endif; ?>
                     </a>
-                    <a href="/academy_management_system/admin/skills/progress.php"
-                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/70 transition-colors text-sm <?php echo (basename($_SERVER['PHP_SELF']) == 'progress.php') ? 'text-blue-300 bg-gray-800/50' : 'text-gray-300'; ?>">
-                        <div class="w-6 h-6 rounded flex items-center justify-center <?php echo (basename($_SERVER['PHP_SELF']) == 'progress.php') ? 'bg-blue-500/20' : 'bg-gray-700'; ?>">
-                            <i class="fas fa-chart-line text-xs"></i>
-                        </div>
-                        <span>Progress</span>
-                        <?php if (basename($_SERVER['PHP_SELF']) == 'progress.php'): ?>
-                            <span class="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                        <?php endif; ?>
-                    </a>
+                
                 </div>
             </div>
 
@@ -289,16 +280,7 @@
                             <span class="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500"></span>
                         <?php endif; ?>
                     </a>
-                    <a href="/academy_management_system/admin/fees/payment_history.php"
-                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/70 transition-colors text-sm <?php echo (basename($_SERVER['PHP_SELF']) == 'payment_history.php') ? 'text-blue-300 bg-gray-800/50' : 'text-gray-300'; ?>">
-                        <div class="w-6 h-6 rounded flex items-center justify-center <?php echo (basename($_SERVER['PHP_SELF']) == 'payment_history.php') ? 'bg-blue-500/20' : 'bg-gray-700'; ?>">
-                            <i class="fas fa-file-invoice-dollar text-xs"></i>
-                        </div>
-                        <span>Fee History</span>
-                        <?php if (basename($_SERVER['PHP_SELF']) == 'payment_history.php'): ?>
-                            <span class="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                        <?php endif; ?>
-                    </a>
+                
                 </div>
             </div>
 
