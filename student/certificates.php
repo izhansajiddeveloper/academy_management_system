@@ -27,26 +27,22 @@ if (!$student) {
 
 $student_id = $student['id'];
 
-// Fetch certificates for the student
+// Fetch certificates for the student (based on skill progress)
 $certificates_query = "
 SELECT 
     c.*,
     s.skill_name,
-    s.description AS skill_description,
+    s.description as skill_description,
     b.batch_name,
-    COUNT(qr.id) AS total_quizzes,
-    AVG((qr.score / q.total_marks) * 100) AS avg_score
+    sp.progress_percent as avg_score,
+    sp.last_updated as issued_date
 FROM certificates c
 JOIN skills s ON c.skill_id = s.id
 JOIN batches b ON c.batch_id = b.id
-LEFT JOIN quiz_results qr 
-    ON qr.student_id = c.student_id 
-    AND qr.quiz_id IN (
-        SELECT id FROM quizzes WHERE batch_id = c.batch_id
-    )
-LEFT JOIN quizzes q ON qr.quiz_id = q.id
+LEFT JOIN skill_progress sp ON sp.student_id = c.student_id 
+    AND sp.skill_id = c.skill_id 
+    AND sp.batch_id = c.batch_id
 WHERE c.student_id = ?
-GROUP BY c.id
 ORDER BY c.issued_date DESC
 ";
 
@@ -55,47 +51,37 @@ $stmt_certificates->bind_param("i", $student_id);
 $stmt_certificates->execute();
 $certificates = $stmt_certificates->get_result();
 
-
-// Available certificates (eligible but not yet issued)
+// Available certificates (based on skill progress > 85%)
 $available_certificates_query = "
 SELECT 
-    s.id AS skill_id,
+    sp.skill_id,
     s.skill_name,
-    s.description AS skill_description,
-    b.id AS batch_id,
+    s.description as skill_description,
+    sp.batch_id,
     b.batch_name,
-    COUNT(DISTINCT q.id) AS total_quizzes_in_skill,
-    COUNT(DISTINCT qr.quiz_id) AS completed_quizzes,
-    AVG((qr.score / q.total_marks) * 100) AS avg_score,
-    MIN((qr.score / q.total_marks) * 100) AS min_score
-FROM skills s
-JOIN batches b ON b.skill_id = s.id
-JOIN quizzes q ON q.batch_id = b.id
-LEFT JOIN quiz_results qr 
-    ON qr.quiz_id = q.id 
-    AND qr.student_id = ?
-WHERE b.id IN (
-    SELECT batch_id
-    FROM student_enrollments
-    WHERE student_id = ?
-    AND status = 'active'
-)
-GROUP BY s.id, b.id
-HAVING 
-    completed_quizzes = total_quizzes_in_skill
-    AND avg_score >= 80
-    AND min_score >= 60
+    sp.progress_percent as avg_score,
+    sp.overall_performance,
+    sp.last_updated,
+    sp.topics_completed,
+    sp.total_topics
+FROM skill_progress sp
+JOIN skills s ON sp.skill_id = s.id
+JOIN batches b ON sp.batch_id = b.id
+WHERE sp.student_id = ?
+    AND sp.progress_percent >= 85
+    AND sp.overall_performance >= 80
     AND NOT EXISTS (
-        SELECT 1
-        FROM certificates c
-        WHERE c.student_id = ?
-        AND c.skill_id = s.id
-        AND c.batch_id = b.id
+        SELECT 1 
+        FROM certificates c 
+        WHERE c.student_id = sp.student_id 
+        AND c.skill_id = sp.skill_id 
+        AND c.batch_id = sp.batch_id
     )
+ORDER BY sp.progress_percent DESC
 ";
 
 $stmt_available = $conn->prepare($available_certificates_query);
-$stmt_available->bind_param("iii", $student_id, $student_id, $student_id);
+$stmt_available->bind_param("i", $student_id);
 $stmt_available->execute();
 $available_certificates = $stmt_available->get_result();
 ?>
@@ -171,6 +157,11 @@ $available_certificates = $stmt_available->get_result();
             color: #1e40af;
         }
 
+        .badge-premium {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
         .progress-ring {
             transform: rotate(-90deg);
         }
@@ -194,6 +185,22 @@ $available_certificates = $stmt_available->get_result();
             right: -20px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
+
+        .progress-ring-container {
+            width: 80px;
+            height: 80px;
+            position: relative;
+        }
+
+        .progress-ring-value {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 16px;
+            font-weight: bold;
+            color: #6366f1;
+        }
     </style>
 </head>
 
@@ -214,12 +221,12 @@ $available_certificates = $stmt_available->get_result();
                         <h1 class="text-3xl font-bold text-gray-800">My Certificates</h1>
                         <p class="text-gray-600 mt-2">
                             <i class="fas fa-certificate text-blue-500 mr-2"></i>
-                            Your earned certificates and achievements
+                            Your earned certificates based on skill progress
                         </p>
                     </div>
                     <div>
-                        <a href="grades_results.php" class="text-gray-600 hover:text-gray-800 mr-4">
-                            <i class="fas fa-chart-bar mr-2"></i> View Grades
+                        <a href="student_progress.php" class="text-gray-600 hover:text-gray-800 mr-4">
+                            <i class="fas fa-chart-line mr-2"></i> View Progress
                         </a>
                     </div>
                 </div>
@@ -230,8 +237,8 @@ $available_certificates = $stmt_available->get_result();
                 <div class="mb-8">
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-xl font-bold text-gray-800">Available Certificates</h2>
-                        <span class="badge badge-info">
-                            <i class="fas fa-gift mr-1"></i> Ready to Claim
+                        <span class="badge badge-premium">
+                            <i class="fas fa-gem mr-1"></i> Ready to Claim
                         </span>
                     </div>
 
@@ -243,33 +250,44 @@ $available_certificates = $stmt_available->get_result();
                                         <h3 class="text-lg font-bold text-gray-800"><?php echo htmlspecialchars($available['skill_name']); ?></h3>
                                         <p class="text-gray-600"><?php echo htmlspecialchars($available['batch_name']); ?></p>
                                     </div>
-                                    <div class="text-right">
-                                        <div class="text-sm text-gray-500">Average Score</div>
-                                        <div class="text-xl font-bold text-green-600"><?php echo round($available['avg_score'], 1); ?>%</div>
+                                    <div class="flex items-center gap-4">
+                                        <div class="text-right">
+                                            <div class="text-sm text-gray-500">Skill Progress</div>
+                                            <div class="text-xl font-bold text-green-600"><?php echo round($available['avg_score'], 1); ?>%</div>
+                                        </div>
+                                        <div class="text-right">
+                                            <div class="text-sm text-gray-500">Performance</div>
+                                            <div class="text-lg font-bold text-blue-600"><?php echo round($available['overall_performance'], 1); ?>%</div>
+                                        </div>
                                     </div>
                                 </div>
 
                                 <div class="mb-6">
                                     <div class="flex justify-between text-sm text-gray-600 mb-2">
-                                        <span>Completion Progress</span>
-                                        <span><?php echo $available['completed_quizzes']; ?>/<?php echo $available['total_quizzes_in_skill']; ?> quizzes</span>
+                                        <span>Topic Completion</span>
+                                        <span><?php echo $available['topics_completed']; ?>/<?php echo $available['total_topics']; ?> topics</span>
                                     </div>
                                     <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-                                        <div class="h-full bg-green-500 rounded-full"
-                                            style="width: <?php echo ($available['completed_quizzes'] / $available['total_quizzes_in_skill']) * 100; ?>%"></div>
+                                        <div class="h-full bg-gradient-to-r from-green-500 to-blue-500 rounded-full"
+                                            style="width: <?php echo ($available['topics_completed'] / $available['total_topics']) * 100; ?>%"></div>
                                     </div>
                                 </div>
 
                                 <div class="flex items-center justify-between">
                                     <div>
                                         <span class="badge badge-success">
-                                            <i class="fas fa-check-circle mr-1"></i> Eligible for Certificate
+                                            <i class="fas fa-trophy mr-1"></i> Eligible for Certificate
+                                        </span>
+                                        <span class="text-xs text-gray-500 ml-2">
+                                            Last updated: <?php echo date('M d, Y', strtotime($available['last_updated'])); ?>
                                         </span>
                                     </div>
                                     <form action="generate_certificate.php" method="POST">
                                         <input type="hidden" name="skill_id" value="<?php echo $available['skill_id']; ?>">
                                         <input type="hidden" name="batch_id" value="<?php echo $available['batch_id']; ?>">
-                                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium">
+                                        <input type="hidden" name="progress_percent" value="<?php echo $available['avg_score']; ?>">
+                                        <input type="hidden" name="performance_score" value="<?php echo $available['overall_performance']; ?>">
+                                        <button type="submit" class="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-2 rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200">
                                             <i class="fas fa-download mr-2"></i> Generate Certificate
                                         </button>
                                     </form>
@@ -278,8 +296,8 @@ $available_certificates = $stmt_available->get_result();
                                 <div class="mt-4 pt-4 border-t border-gray-200">
                                     <p class="text-sm text-gray-600">
                                         <i class="fas fa-info-circle text-blue-500 mr-1"></i>
-                                        You have successfully completed all quizzes with an average score of <?php echo round($available['avg_score'], 1); ?>%.
-                                        You can now generate your certificate.
+                                        You have achieved <?php echo round($available['avg_score'], 1); ?>% progress with <?php echo round($available['overall_performance'], 1); ?>% overall performance.
+                                        You qualify for a certificate!
                                     </p>
                                 </div>
                             </div>
@@ -298,6 +316,7 @@ $available_certificates = $stmt_available->get_result();
                             $issue_date = date('F d, Y', strtotime($certificate['issued_date']));
                             $expiry_date = $certificate['expiry_date'] ? date('F d, Y', strtotime($certificate['expiry_date'])) : 'No Expiry';
                             $is_expired = $certificate['expiry_date'] && strtotime($certificate['expiry_date']) < time();
+                            $progress_percent = $certificate['avg_score'] ?? 0;
                         ?>
                             <div class="certificate-card p-6">
                                 <div class="relative">
@@ -305,7 +324,7 @@ $available_certificates = $stmt_available->get_result();
                                     <div class="certificate-preview mb-6">
                                         <div class="certificate-border">
                                             <div class="relative z-10">
-                                                <div class="text-xs opacity-80 mb-2">CERTIFICATE OF COMPLETION</div>
+                                                <div class="text-xs opacity-80 mb-2">CERTIFICATE OF ACHIEVEMENT</div>
                                                 <h3 class="text-xl font-bold mb-2"><?php echo htmlspecialchars($certificate['skill_name']); ?></h3>
                                                 <div class="text-sm opacity-90 mb-4"><?php echo htmlspecialchars($certificate['batch_name']); ?></div>
 
@@ -313,6 +332,11 @@ $available_certificates = $stmt_available->get_result();
                                                     <div class="text-center">
                                                         <div class="text-xs opacity-80">Issued On</div>
                                                         <div class="text-sm font-medium"><?php echo $issue_date; ?></div>
+                                                    </div>
+                                                    <div class="h-8 w-px bg-white opacity-30"></div>
+                                                    <div class="text-center">
+                                                        <div class="text-xs opacity-80">Progress</div>
+                                                        <div class="text-sm font-medium"><?php echo round($progress_percent, 1); ?>%</div>
                                                     </div>
                                                     <div class="h-8 w-px bg-white opacity-30"></div>
                                                     <div class="text-center">
@@ -345,8 +369,8 @@ $available_certificates = $stmt_available->get_result();
                                                 </span>
                                             </div>
                                             <div class="text-right">
-                                                <div class="text-sm text-gray-500">Average Score</div>
-                                                <div class="text-lg font-bold text-green-600"><?php echo round($certificate['avg_score'], 1); ?>%</div>
+                                                <div class="text-sm text-gray-500">Skill Progress</div>
+                                                <div class="text-lg font-bold text-green-600"><?php echo round($progress_percent, 1); ?>%</div>
                                             </div>
                                         </div>
 
@@ -361,6 +385,11 @@ $available_certificates = $stmt_available->get_result();
                                             </div>
                                         </div>
 
+                                        <div class="bg-gray-50 p-3 rounded-lg">
+                                            <div class="text-sm text-gray-600 mb-1">Verification Code</div>
+                                            <div class="font-mono text-gray-800 text-lg"><?php echo $certificate['verification_code']; ?></div>
+                                        </div>
+
                                         <!-- Actions -->
                                         <div class="flex space-x-3 pt-4 border-t border-gray-200">
                                             <a href="view_certificate.php?id=<?php echo $certificate['id']; ?>"
@@ -371,7 +400,7 @@ $available_certificates = $stmt_available->get_result();
                                                 class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-center font-medium">
                                                 <i class="fas fa-download mr-2"></i> Download PDF
                                             </a>
-                                            <a href="verify_certificate.php?code=<?php echo $certificate['verification_code']; ?>"
+                                            <a href="../verify_certificate.php?code=<?php echo $certificate['verification_code']; ?>"
                                                 target="_blank"
                                                 class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg text-center font-medium">
                                                 <i class="fas fa-shield-alt mr-2"></i> Verify
@@ -390,14 +419,14 @@ $available_certificates = $stmt_available->get_result();
                         </div>
                         <h3 class="text-xl font-medium text-gray-700 mb-2">No Certificates Yet</h3>
                         <p class="text-gray-500 mb-6 max-w-md mx-auto">
-                            You haven't earned any certificates yet. Complete all quizzes in a skill with an average score above 80% to earn your first certificate.
+                            Achieve 85% or more progress in any skill with at least 80% overall performance to earn your first certificate.
                         </p>
                         <div class="space-x-4">
-                            <a href="student_quiz.php" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium">
-                                <i class="fas fa-play mr-2"></i> Take Quizzes
+                            <a href="student_progress.php" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium">
+                                <i class="fas fa-chart-line mr-2"></i> Check Progress
                             </a>
-                            <a href="student_progress.php" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-2 rounded-lg font-medium">
-                                <i class="fas fa-chart-bar mr-2"></i> Check Progress
+                            <a href="student_dashboard.php" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-2 rounded-lg font-medium">
+                                <i class="fas fa-home mr-2"></i> Go to Dashboard
                             </a>
                         </div>
                     </div>
@@ -407,27 +436,34 @@ $available_certificates = $stmt_available->get_result();
             <!-- Certificate Requirements -->
             <div class="mt-8 certificate-card p-6">
                 <h3 class="text-lg font-bold text-gray-800 mb-4">Certificate Requirements</h3>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
                     <div class="text-center p-4">
                         <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <i class="fas fa-check-circle text-2xl text-blue-600"></i>
+                            <i class="fas fa-chart-line text-2xl text-blue-600"></i>
                         </div>
-                        <h4 class="font-medium text-gray-800 mb-2">Complete All Quizzes</h4>
-                        <p class="text-sm text-gray-600">Finish all quizzes in the skill/batch</p>
+                        <h4 class="font-medium text-gray-800 mb-2">85% Progress</h4>
+                        <p class="text-sm text-gray-600">Minimum skill completion progress</p>
                     </div>
                     <div class="text-center p-4">
                         <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <i class="fas fa-chart-line text-2xl text-green-600"></i>
+                            <i class="fas fa-star text-2xl text-green-600"></i>
                         </div>
-                        <h4 class="font-medium text-gray-800 mb-2">Minimum 80% Average</h4>
-                        <p class="text-sm text-gray-600">Maintain at least 80% average score</p>
+                        <h4 class="font-medium text-gray-800 mb-2">80% Performance</h4>
+                        <p class="text-sm text-gray-600">Minimum overall performance score</p>
                     </div>
                     <div class="text-center p-4">
                         <div class="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <i class="fas fa-medal text-2xl text-purple-600"></i>
+                            <i class="fas fa-check-circle text-2xl text-purple-600"></i>
                         </div>
-                        <h4 class="font-medium text-gray-800 mb-2">No Quiz Below 60%</h4>
-                        <p class="text-sm text-gray-600">All individual quizzes must have at least 60% score</p>
+                        <h4 class="font-medium text-gray-800 mb-2">Topic Completion</h4>
+                        <p class="text-sm text-gray-600">Complete required topics</p>
+                    </div>
+                    <div class="text-center p-4">
+                        <div class="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <i class="fas fa-award text-2xl text-yellow-600"></i>
+                        </div>
+                        <h4 class="font-medium text-gray-800 mb-2">One Year Validity</h4>
+                        <p class="text-sm text-gray-600">Certificate valid for 1 year</p>
                     </div>
                 </div>
             </div>
@@ -475,7 +511,7 @@ $available_certificates = $stmt_available->get_result();
                 });
             } else {
                 // Fallback: Copy verification link
-                const link = `${window.location.origin}/student/verify_certificate.php?id=${certificateId}`;
+                const link = `${window.location.origin}/verify_certificate.php?code=${certificateId}`;
                 navigator.clipboard.writeText(link)
                     .then(() => alert('Verification link copied to clipboard!'))
                     .catch(() => alert('Please copy the verification link manually.'));

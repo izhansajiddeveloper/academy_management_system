@@ -9,6 +9,14 @@ if ($_SESSION['user_type'] !== 'student') {
     exit;
 }
 
+// Check if certificate ID is provided
+if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
+    header("Location: certificates.php?error=invalid_certificate");
+    exit;
+}
+
+$certificate_id = intval($_GET['id']);
+
 // Get student ID from students table using user_id from session
 $user_id = $_SESSION['user_id'];
 
@@ -27,27 +35,26 @@ if (!$student) {
 
 $student_id = $student['id'];
 
-// Get certificate ID
-$certificate_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
-
-if (!$certificate_id) {
-    header("Location: certificates.php");
-    exit;
-}
-
 // Fetch certificate details
 $certificate_query = "
 SELECT 
     c.*,
     s.skill_name,
     s.description as skill_description,
+    s.level as skill_level,
     b.batch_name,
-    st.name as student_name,
-    st.email as student_email
+    sp.progress_percent as avg_score,
+    sp.overall_performance,
+    sp.last_updated as issued_date,
+    t.name as trainer_name
 FROM certificates c
 JOIN skills s ON c.skill_id = s.id
 JOIN batches b ON c.batch_id = b.id
-JOIN students st ON c.student_id = st.id
+LEFT JOIN skill_progress sp ON sp.student_id = c.student_id 
+    AND sp.skill_id = c.skill_id 
+    AND sp.batch_id = c.batch_id
+LEFT JOIN teacher_assignments ta ON ta.batch_id = b.id
+LEFT JOIN teachers t ON ta.teacher_id = t.id
 WHERE c.id = ? AND c.student_id = ?
 ";
 
@@ -55,326 +62,306 @@ $stmt_certificate = $conn->prepare($certificate_query);
 $stmt_certificate->bind_param("ii", $certificate_id, $student_id);
 $stmt_certificate->execute();
 $certificate_result = $stmt_certificate->get_result();
+$certificate = $certificate_result->fetch_assoc();
 
-if ($certificate_result->num_rows === 0) {
+if (!$certificate) {
     header("Location: certificates.php?error=certificate_not_found");
     exit;
 }
 
-$certificate = $certificate_result->fetch_assoc();
+// ============================================================
+// TCPDF PATH FIX
+// Based on your file structure, try these paths:
+// ============================================================
 
-// Include TCPDF library
-require_once(__DIR__ . '/../vendor/tcpdf/tcpdf.php');       
+// Option 1: If TCPDF is in student/includes/TCPDF-main/
+$tcpdf_path = __DIR__ . '/includes/TCPDF-main/tcpdf.php';
 
-// Create new PDF document
-class CertificatePDF extends TCPDF
-{
-    // Page header
-    public function Header()
-    {
-        // Logo
-        $image_file = __DIR__ . '/../assets/logo.png';
-        if (file_exists($image_file)) {
-            $this->Image($image_file, 15, 10, 40);
-        }
-
-        // Set font
-        $this->SetFont('helvetica', 'B', 20);
-
-        // Title
-        $this->SetY(15);
-        $this->Cell(0, 10, 'ACADEMY OF EXCELLENCE', 0, false, 'C', 0, '', 0, false, 'M', 'M');
-
-        // Line break
-        $this->Ln(20);
-    }
-
-    // Page footer
-    public function Footer()
-    {
-        // Position at 15 mm from bottom
-        $this->SetY(-15);
-
-        // Set font
-        $this->SetFont('helvetica', 'I', 8);
-
-        // Page number
-        $this->Cell(0, 10, 'Page ' . $this->getAliasNumPage() . '/' . $this->getAliasNbPages(), 0, false, 'C', 0, '', 0, false, 'T', 'M');
-
-        // Certificate ID
-        $this->SetY(-25);
-        $this->SetFont('helvetica', '', 8);
-        $this->Cell(0, 10, 'Certificate ID: ' . $GLOBALS['certificate_number'], 0, false, 'C', 0, '', 0, false, 'T', 'M');
-
-        // Verification URL
-        $this->SetY(-30);
-        $this->Cell(0, 10, 'Verify at: ' . $GLOBALS['verification_url'], 0, false, 'C', 0, '', 0, false, 'T', 'M');
-    }
+// Option 2: If TCPDF is in includes/TCPDF-main/ (one level up)
+if (!file_exists($tcpdf_path)) {
+    $tcpdf_path = __DIR__ . '/../includes/TCPDF-main/tcpdf.php';
 }
 
-// Create PDF instance
-$pdf = new CertificatePDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
+// Option 3: If TCPDF is in the root includes/TCPDF-main/
+if (!file_exists($tcpdf_path)) {
+    $tcpdf_path = __DIR__ . '/../../includes/TCPDF-main/tcpdf.php';
+}
+
+// Check if TCPDF exists
+if (!file_exists($tcpdf_path)) {
+    die("TCPDF library not found. Please check the installation path. Tried: " . $tcpdf_path);
+}
+
+// Include TCPDF library
+require_once $tcpdf_path;
+
+// Format dates
+$issue_date = date('F d, Y', strtotime($certificate['issued_date']));
+$expiry_date = $certificate['expiry_date'] ? date('F d, Y', strtotime($certificate['expiry_date'])) : 'No Expiry';
+
+// Create new PDF document - Landscape orientation (11" wide x 8.5" tall)
+$pdf = new TCPDF('L', 'in', array(11, 8.5), true, 'UTF-8', false);
 
 // Set document information
-$pdf->SetCreator('Academy Management System');
-$pdf->SetAuthor('Academy of Excellence');
+$pdf->SetCreator('EduMaster Academy');
+$pdf->SetAuthor('EduMaster Academy');
 $pdf->SetTitle('Certificate of Completion - ' . $certificate['skill_name']);
-$pdf->SetSubject('Certificate of Completion');
-$pdf->SetKeywords('Certificate, Completion, Achievement, ' . $certificate['skill_name']);
+$pdf->SetSubject('Certificate of Achievement');
 
-// Set default header data
-$pdf->SetHeaderData('', 0, '', '');
+// Remove default header/footer
+$pdf->setPrintHeader(false);
+$pdf->setPrintFooter(false);
 
-// Set header and footer fonts
-$pdf->setHeaderFont(array(PDF_FONT_NAME_MAIN, '', PDF_FONT_SIZE_MAIN));
-$pdf->setFooterFont(array(PDF_FONT_NAME_DATA, '', PDF_FONT_SIZE_DATA));
-
-// Set default monospaced font
-$pdf->SetDefaultMonospacedFont(PDF_FONT_MONOSPACED);
-
-// Set margins
-$pdf->SetMargins(15, 40, 15);
-$pdf->SetHeaderMargin(10);
-$pdf->SetFooterMargin(20);
-
-// Set auto page breaks
-$pdf->SetAutoPageBreak(TRUE, 25);
-
-// Set image scale factor
-$pdf->setImageScale(PDF_IMAGE_SCALE_RATIO);
+// Set margins - all to 0.5 inches
+$pdf->SetMargins(0.5, 0.5, 0.5);
+$pdf->SetAutoPageBreak(false, 0);
 
 // Add a page
 $pdf->AddPage();
 
-// Set global variables for footer
-$GLOBALS['certificate_number'] = $certificate['certificate_number'];
-$GLOBALS['verification_url'] = 'https://' . $_SERVER['HTTP_HOST'] . '/verify_certificate.php?code=' . $certificate['verification_code'];
-
-// Set font
+// Set default font
 $pdf->SetFont('helvetica', '', 12);
 
-// Add decorative border
-$pdf->SetLineWidth(1.5);
-$pdf->SetDrawColor(200, 200, 200);
-$pdf->Rect(10, 10, 190, 277, 'D');
+// ================== DESIGN THE CERTIFICATE ==================
 
-// Add inner decorative border
-$pdf->SetLineWidth(0.5);
-$pdf->SetDrawColor(100, 100, 100);
-$pdf->Rect(15, 15, 180, 267, 'D');
+// 1. BACKGROUND COLOR - White
+$pdf->SetFillColor(255, 255, 255);
+$pdf->Rect(0, 0, 11, 8.5, 'F');
 
-// Certificate content
-$html = '
-<style>
-    .cert-title {
-        font-size: 28px;
-        font-weight: bold;
-        color: #2c3e50;
-        text-align: center;
-        margin-bottom: 10px;
-    }
-    .cert-subtitle {
-        font-size: 16px;
-        color: #7f8c8d;
-        text-align: center;
-        margin-bottom: 40px;
-        letter-spacing: 10px;
-    }
-    .cert-awarded {
-        font-size: 20px;
-        text-align: center;
-        margin-bottom: 40px;
-    }
-    .cert-name {
-        font-size: 36px;
-        font-weight: bold;
-        color: #2980b9;
-        text-align: center;
-        margin-bottom: 30px;
-        padding: 20px;
-        border-top: 2px solid #ddd;
-        border-bottom: 2px solid #ddd;
-    }
-    .cert-description {
-        font-size: 16px;
-        text-align: center;
-        margin-bottom: 30px;
-        line-height: 1.6;
-    }
-    .cert-details {
-        font-size: 14px;
-        text-align: center;
-        margin-bottom: 40px;
-        color: #555;
-    }
-    .cert-achievement {
-        font-size: 16px;
-        text-align: center;
-        margin-bottom: 40px;
-        background-color: #f8f9fa;
-        padding: 15px;
-        border-radius: 5px;
-    }
-    .signature-area {
-        margin-top: 60px;
-        text-align: center;
-    }
-    .signature-line {
-        border-top: 1px solid #000;
-        width: 200px;
-        margin: 40px auto 10px;
-    }
-</style>
+// 2. MAIN BORDER - Blue gradient effect
+$pdf->SetLineWidth(0.02);
+$pdf->SetDrawColor(30, 64, 175); // Navy Blue
+$pdf->Rect(0.25, 0.25, 10.5, 8, 'D'); // Outer border
 
-<div class="cert-title">CERTIFICATE OF COMPLETION</div>
-<div class="cert-subtitle">AWARDED TO</div>
+// Inner decorative border
+$pdf->SetLineWidth(0.01);
+$pdf->SetDrawColor(59, 130, 246); // Royal Blue
+$pdf->Rect(0.35, 0.35, 10.3, 7.8, 'D');
 
-<div class="cert-awarded">This certificate is proudly presented to</div>
+// 3. DECORATIVE CORNERS
+$corner_size = 0.4;
+$pdf->SetLineWidth(0.015);
+$pdf->SetDrawColor(30, 64, 175); // Navy Blue
 
-<div class="cert-name">' . htmlspecialchars($student['name']) . '</div>
+// Top-left corner
+$pdf->Line(0.25, 0.25, 0.25 + $corner_size, 0.25);
+$pdf->Line(0.25, 0.25, 0.25, 0.25 + $corner_size);
 
-<div class="cert-description">
-    for successfully completing the course in<br>
-    <strong style="font-size: 20px;">' . htmlspecialchars($certificate['skill_name']) . '</strong><br>
-    <em>' . htmlspecialchars($certificate['batch_name']) . ' Batch</em>
-</div>
+// Top-right corner
+$pdf->Line(10.75 - $corner_size, 0.25, 10.75, 0.25);
+$pdf->Line(10.75, 0.25, 10.75, 0.25 + $corner_size);
 
-<div class="cert-achievement">
-    <strong>Achievement Summary:</strong><br>
-    • Average Score: ' . round($certificate['avg_score'], 1) . '%<br>
-    • Completion Date: ' . date('F d, Y', strtotime($certificate['issued_date'])) . '<br>
-    • Certificate ID: ' . $certificate['certificate_number'] . '
-</div>
+// Bottom-left corner
+$pdf->Line(0.25, 8.25 - $corner_size, 0.25, 8.25);
+$pdf->Line(0.25, 8.25, 0.25 + $corner_size, 8.25);
 
-<div class="cert-details">
-    This certificate verifies that the recipient has demonstrated proficiency in the subject matter<br>
-    and has successfully met all requirements for course completion.
-</div>
+// Bottom-right corner
+$pdf->Line(10.75 - $corner_size, 8.25, 10.75, 8.25);
+$pdf->Line(10.75, 8.25 - $corner_size, 10.75, 8.25);
 
-<div style="text-align: center; margin-bottom: 20px;">
-    <img src="../assets/seal.png" width="100" style="opacity: 0.7;">
-</div>
+// 4. WATERMARK BACKGROUND TEXT
+$pdf->SetFont('helvetica', 'B', 72);
+$pdf->SetTextColor(240, 240, 245);
+$pdf->StartTransform();
+$pdf->Rotate(45, 5.5, 4.25);
+$pdf->SetXY(1, 3);
+$pdf->Cell(9, 0, 'CERTIFICATE OF ACHIEVEMENT', 0, 0, 'C');
+$pdf->StopTransform();
 
-<div class="signature-area">
-    <div class="signature-line"></div>
-    <div style="font-size: 14px; margin-top: 5px;">Director of Academics</div>
-    <div style="font-size: 12px; color: #666;">Academy of Excellence</div>
-</div>
+// Reset font and color
+$pdf->SetFont('helvetica', '', 12);
+$pdf->SetTextColor(0, 0, 0);
 
-<div style="text-align: center; margin-top: 40px; font-size: 10px; color: #999;">
-    This certificate can be verified online at:<br>
-    https://' . $_SERVER['HTTP_HOST'] . '/verify_certificate.php?code=' . $certificate['verification_code'] . '
-</div>
-';
+// 5. INSTITUTION HEADER - Deep Indigo Blue
+$pdf->SetFont('helvetica', 'B', 28);
+$pdf->SetTextColor(37, 99, 235); // Bright Blue
+$pdf->SetXY(0, 0.8);
+$pdf->Cell(11, 0.3, 'EDUMASTER ACADEMY', 0, 1, 'C');
 
-// Print text using writeHTMLCell()
-$pdf->writeHTMLCell(0, 0, '', '', $html, 0, 1, 0, true, '', true);
+$pdf->SetFont('helvetica', '', 10);
+$pdf->SetTextColor(79, 70, 229); // Indigo
+$pdf->SetXY(0, 1.2);
+$pdf->Cell(11, 0.2, 'Center for Professional Excellence', 0, 1, 'C');
 
-// Add a page for transcript
-$pdf->AddPage();
+// Divider line - Blue Gray
+$pdf->SetLineWidth(0.005);
+$pdf->SetDrawColor(100, 116, 139);
+$pdf->Line(1.5, 1.5, 9.5, 1.5);
 
-// Transcript content
-$transcript_html = '
-<style>
-    .transcript-title {
-        font-size: 24px;
-        font-weight: bold;
-        text-align: center;
-        margin-bottom: 20px;
-        color: #2c3e50;
-    }
-    .student-info {
-        margin-bottom: 30px;
-    }
-    .table-header {
-        background-color: #f1f8ff;
-        font-weight: bold;
-    }
-    .table-row {
-        border-bottom: 1px solid #ddd;
-    }
-</style>
+// 6. CERTIFICATE TITLE - Navy Blue
+$pdf->SetFont('helvetica', 'B', 26);
+$pdf->SetTextColor(30, 64, 175); // Navy Blue
+$pdf->SetXY(0, 1.8);
+$pdf->Cell(11, 0.3, 'Certificate of Completion', 0, 1, 'C');
 
-<div class="transcript-title">ACADEMIC TRANSCRIPT</div>
+$pdf->SetFont('helvetica', 'I', 14);
+$pdf->SetTextColor(59, 130, 246); // Royal Blue
+$pdf->SetXY(0, 2.2);
+$pdf->Cell(11, 0.2, 'This Certificate is Awarded To', 0, 1, 'C');
 
-<div class="student-info">
-    <table border="0" cellpadding="5">
-        <tr>
-            <td width="100"><strong>Student Name:</strong></td>
-            <td>' . htmlspecialchars($student['name']) . '</td>
-        </tr>
-        <tr>
-            <td><strong>Student ID:</strong></td>
-            <td>' . $student['id'] . '</td>
-        </tr>
-        <tr>
-            <td><strong>Certificate:</strong></td>
-            <td>' . htmlspecialchars($certificate['skill_name']) . '</td>
-        </tr>
-        <tr>
-            <td><strong>Certificate ID:</strong></td>
-            <td>' . $certificate['certificate_number'] . '</td>
-        </tr>
-        <tr>
-            <td><strong>Issued Date:</strong></td>
-            <td>' . date('F d, Y', strtotime($certificate['issued_date'])) . '</td>
-        </tr>
-    </table>
-</div>
+// 7. STUDENT NAME SECTION - Dark Blue Gray
+$pdf->SetFont('helvetica', '', 12);
+$pdf->SetTextColor(30, 41, 59); // Dark Blue Gray
+$pdf->SetXY(0, 2.7);
+$pdf->Cell(11, 0.2, 'This is to certify that', 0, 1, 'C');
 
-<div>
-    <h3 style="font-size: 18px; margin-bottom: 10px;">Course Details</h3>
-    <table border="1" cellpadding="8" style="width: 100%; border-collapse: collapse;">
-        <tr class="table-header">
-            <th width="60%">Description</th>
-            <th width="40%">Details</th>
-        </tr>
-        <tr class="table-row">
-            <td>Course Name</td>
-            <td>' . htmlspecialchars($certificate['skill_name']) . '</td>
-        </tr>
-        <tr class="table-row">
-            <td>Batch</td>
-            <td>' . htmlspecialchars($certificate['batch_name']) . '</td>
-        </tr>
-        <tr class="table-row">
-            <td>Overall Average Score</td>
-            <td>' . round($certificate['avg_score'], 1) . '%</td>
-        </tr>
-        <tr class="table-row">
-            <td>Certificate Status</td>
-            <td>Valid until ' . date('F d, Y', strtotime($certificate['expiry_date'])) . '</td>
-        </tr>
-    </table>
-</div>
+// Student Name (Large and prominent) - Deep Ocean Blue
+$pdf->SetFont('helvetica', 'B', 36);
+$pdf->SetTextColor(2, 132, 199); // Ocean Blue
+$pdf->SetXY(0, 3.0);
+$pdf->Cell(11, 0.4, htmlspecialchars($student['name']), 0, 1, 'C');
 
-<div style="margin-top: 40px;">
-    <h3 style="font-size: 18px; margin-bottom: 10px;">Verification Information</h3>
-    <table border="0" cellpadding="5">
-        <tr>
-            <td width="150"><strong>Verification Code:</strong></td>
-            <td>' . $certificate['verification_code'] . '</td>
-        </tr>
-        <tr>
-            <td><strong>Verification URL:</strong></td>
-            <td>https://' . $_SERVER['HTTP_HOST'] . '/verify_certificate.php?code=' . $certificate['verification_code'] . '</td>
-        </tr>
-        <tr>
-            <td><strong>Issuing Authority:</strong></td>
-            <td>Academy of Excellence</td>
-        </tr>
-    </table>
-</div>
+// 8. COMPLETION TEXT - Steel Blue
+$pdf->SetFont('helvetica', '', 14);
+$pdf->SetTextColor(51, 65, 85); // Steel Blue
+$pdf->SetXY(0, 3.6);
+$pdf->Cell(11, 0.2, 'has successfully completed the training course in', 0, 1, 'C');
 
-<div style="margin-top: 60px; font-size: 11px; color: #666; text-align: justify;">
-    <p><strong>Disclaimer:</strong> This transcript is an official document issued by the Academy of Excellence. 
-    Any alteration or forgery of this document is strictly prohibited and may result in legal action. 
-    The information contained in this transcript is accurate as of the date of issue.</p>
-</div>
-';
+// 9. SKILL/COURSE NAME - Vibrant Blue
+$pdf->SetFont('helvetica', 'B', 22);
+$pdf->SetTextColor(37, 99, 235); // Vibrant Blue
+$pdf->SetXY(0, 4.0);
+$pdf->Cell(11, 0.3, strtoupper(htmlspecialchars($certificate['skill_name'])), 0, 1, 'C');
 
-$pdf->writeHTMLCell(0, 0, '', '', $transcript_html, 0, 1, 0, true, '', true);
+// 10. DESCRIPTION - Slate Blue
+$pdf->SetFont('helvetica', '', 12);
+$pdf->SetTextColor(71, 85, 105); // Slate Blue
+$pdf->SetXY(1, 4.5);
+$pdf->MultiCell(
+    9,
+    0.18,
+    'Having demonstrated proficiency, commitment, and excellence throughout the program, ' .
+        'achieving all required learning outcomes with outstanding performance.',
+    0,
+    'C',
+    false,
+    1,
+    '',
+    '',
+    true,
+    0,
+    false,
+    true,
+    0,
+    'T'
+);
 
-// Close and output PDF document
-$pdf->Output('certificate_' . $certificate['certificate_number'] . '.pdf', 'D');
+// 11. PERFORMANCE METRICS - Different blues for each box
+$metrics_y = 5.2;
+$box_width = 2.5;
+$box_height = 0.8;
+$spacing = 0.5;
+$total_width = (3 * $box_width) + (2 * $spacing);
+$start_x = (11 - $total_width) / 2;
+
+// Completion Score - Teal Blue
+$pdf->SetFillColor(240, 249, 255); // Light Blue background
+$pdf->Rect($start_x, $metrics_y, $box_width, $box_height, 'F');
+$pdf->SetFont('helvetica', 'B', 20);
+$pdf->SetTextColor(8, 145, 178); // Teal Blue
+$pdf->SetXY($start_x, $metrics_y + 0.2);
+$pdf->Cell($box_width, 0.3, round($certificate['avg_score'], 1) . '%', 0, 1, 'C');
+$pdf->SetFont('helvetica', '', 9);
+$pdf->SetTextColor(15, 118, 110); // Dark Teal
+$pdf->SetXY($start_x, $metrics_y + 0.5);
+$pdf->Cell($box_width, 0.2, 'COMPLETION SCORE', 0, 1, 'C');
+
+// Performance Score - Royal Blue
+$pdf->SetFillColor(239, 246, 255); // Light Royal Blue background
+$pdf->Rect($start_x + $box_width + $spacing, $metrics_y, $box_width, $box_height, 'F');
+$pdf->SetFont('helvetica', 'B', 20);
+$pdf->SetTextColor(59, 130, 246); // Royal Blue
+$pdf->SetXY($start_x + $box_width + $spacing, $metrics_y + 0.2);
+$pdf->Cell($box_width, 0.3, round($certificate['overall_performance'], 1) . '%', 0, 1, 'C');
+$pdf->SetFont('helvetica', '', 9);
+$pdf->SetTextColor(30, 64, 175); // Navy Blue
+$pdf->SetXY($start_x + $box_width + $spacing, $metrics_y + 0.5);
+$pdf->Cell($box_width, 0.2, 'PERFORMANCE SCORE', 0, 1, 'C');
+
+// Proficiency Level - Indigo Blue
+$pdf->SetFillColor(238, 242, 255); // Light Indigo background
+$pdf->Rect($start_x + 2 * ($box_width + $spacing), $metrics_y, $box_width, $box_height, 'F');
+$pdf->SetFont('helvetica', 'B', 20);
+$pdf->SetTextColor(99, 102, 241); // Indigo Blue
+$pdf->SetXY($start_x + 2 * ($box_width + $spacing), $metrics_y + 0.2);
+$pdf->Cell($box_width, 0.3, strtoupper($certificate['skill_level']), 0, 1, 'C');
+$pdf->SetFont('helvetica', '', 9);
+$pdf->SetTextColor(67, 56, 202); // Dark Indigo
+$pdf->SetXY($start_x + 2 * ($box_width + $spacing), $metrics_y + 0.5);
+$pdf->Cell($box_width, 0.2, 'PROFICIENCY LEVEL', 0, 1, 'C');
+
+// 12. SIGNATURES
+$signature_y = 6.2;
+$signature_width = 3.5;
+
+// Left signature (Instructor) - Deep Blue
+$pdf->SetDrawColor(59, 130, 246); // Royal Blue line
+$pdf->SetLineWidth(0.005);
+$pdf->Line(1.5, $signature_y, 1.5 + $signature_width, $signature_y);
+
+$pdf->SetFont('helvetica', 'B', 12);
+$pdf->SetTextColor(30, 64, 175); // Navy Blue
+$pdf->SetXY(1.5, $signature_y + 0.15);
+$pdf->Cell($signature_width, 0.2, htmlspecialchars($certificate['trainer_name'] ?? 'Course Instructor'), 0, 1, 'C');
+
+$pdf->SetFont('helvetica', 'I', 9);
+$pdf->SetTextColor(79, 70, 229); // Indigo
+$pdf->SetXY(1.5, $signature_y + 0.35);
+$pdf->Cell($signature_width, 0.2, 'Certified Trainer', 0, 1, 'C');
+
+// Right signature (Director) - Steel Blue
+$pdf->SetDrawColor(100, 116, 139); // Blue Gray line
+$pdf->SetLineWidth(0.005);
+$pdf->Line(11 - 1.5 - $signature_width, $signature_y, 11 - 1.5, $signature_y);
+
+$pdf->SetFont('helvetica', 'B', 12);
+$pdf->SetTextColor(51, 65, 85); // Steel Blue
+$pdf->SetXY(11 - 1.5 - $signature_width, $signature_y + 0.15);
+$pdf->Cell($signature_width, 0.2, 'Academic Director', 0, 1, 'C');
+
+$pdf->SetFont('helvetica', 'I', 9);
+$pdf->SetTextColor(71, 85, 105); // Slate Blue
+$pdf->SetXY(11 - 1.5 - $signature_width, $signature_y + 0.35);
+$pdf->Cell($signature_width, 0.2, 'EduMaster Academy', 0, 1, 'C');
+
+// 13. FOOTER WITH VERIFICATION INFO - Different blues
+$footer_y = 7.5;
+
+// Certificate ID - Dark Blue Gray
+$pdf->SetFont('helvetica', '', 8);
+$pdf->SetTextColor(30, 41, 59); // Dark Blue Gray
+$pdf->SetXY(0.5, $footer_y);
+$pdf->Cell(3, 0.2, 'Certificate ID: ' . $certificate['certificate_number'], 0, 1, 'L');
+
+// Verification URL - Ocean Blue
+$pdf->SetFont('helvetica', '', 8);
+$pdf->SetTextColor(2, 132, 199); // Ocean Blue
+$pdf->SetXY(0, $footer_y);
+$pdf->Cell(11, 0.2, 'Verify online: verify.edumaster.org/' . $certificate['verification_code'], 0, 1, 'C');
+
+// Dates - Different shades
+$pdf->SetFont('helvetica', '', 8);
+$pdf->SetTextColor(59, 130, 246); // Royal Blue - Issued date
+$pdf->SetXY(11 - 3.5, $footer_y);
+$pdf->Cell(3, 0.2, 'Issued: ' . $issue_date, 0, 1, 'R');
+
+$pdf->SetTextColor(37, 99, 235); // Bright Blue - Valid date
+$pdf->SetXY(11 - 3.5, $footer_y + 0.15);
+$pdf->Cell(3, 0.2, 'Valid: ' . $expiry_date, 0, 1, 'R');
+
+// 14. FINAL BORDER LINES - Light Blue Gray
+$pdf->SetLineWidth(0.002);
+$pdf->SetDrawColor(226, 232, 240); // Light Blue Gray
+$pdf->Line(0.5, $footer_y + 0.4, 10.5, $footer_y + 0.4);
+
+// ================== OUTPUT PDF ==================
+
+// Generate filename
+$filename = 'Certificate_' .
+    preg_replace('/[^A-Za-z0-9_\-]/', '_', $certificate['skill_name']) . '_' .
+    $certificate['certificate_number'] . '.pdf';
+
+// Output PDF as download
+$pdf->Output($filename, 'D');
+
 exit;
