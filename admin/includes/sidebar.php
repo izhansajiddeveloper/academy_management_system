@@ -574,17 +574,7 @@
                 </div>
             </div>
 
-            <!-- Activity Log (New Section) -->
-            <a href="/academy_management_system/admin/activity_logs.php"
-                class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800/70 hover:shadow-md transition-all duration-200 <?php echo (basename($_SERVER['PHP_SELF']) == 'activity_log.php') ? 'bg-gradient-to-r from-blue-900/30 to-purple-900/30 border-l-4 border-blue-500 shadow-inner' : ''; ?>">
-                <div class="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center <?php echo (basename($_SERVER['PHP_SELF']) == 'activity_log.php') ? 'bg-blue-500/20' : ''; ?>">
-                    <i class="fas fa-history text-sm <?php echo (basename($_SERVER['PHP_SELF']) == 'activity_log.php') ? 'text-blue-400' : 'text-gray-300'; ?>"></i>
-                </div>
-                <span class="font-medium <?php echo (basename($_SERVER['PHP_SELF']) == 'activity_log.php') ? 'text-blue-300' : ''; ?>">Activity Log</span>
-                <?php if (basename($_SERVER['PHP_SELF']) == 'activity_log.php'): ?>
-                    <span class="ml-auto w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-                <?php endif; ?>
-            </a>
+          
 
         </nav>
 
