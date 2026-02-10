@@ -204,7 +204,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     <a href="../fees/fee_collection.php" class="sidebar-link">
                         <i class="fas fa-cash-register"></i> Fee Collection
                     </a>
-                    <a href="../fees/fee_history.php" class="sidebar-link">
+                    <a href="../fees/payment_history.php" class="sidebar-link">
                         <i class="fas fa-history"></i> Fee History
                     </a>
                     <a href="../expenses/expenses.php" class="sidebar-link">

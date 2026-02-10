@@ -257,18 +257,18 @@
             <!-- Fees -->
             <div class="space-y-1">
                 <button onclick="toggleFeesMenu()"
-                    class="flex items-center justify-between w-full p-3 rounded-xl hover:bg-gray-800/70 hover:shadow-md transition-all duration-200 <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['fee_structures.php', 'fee_collection.php', 'fee_history.php', 'add_fee.php', 'edit_fee.php'])) ? 'bg-gradient-to-r from-blue-900/30 to-purple-900/30 border-l-4 border-blue-500' : ''; ?>">
+                    class="flex items-center justify-between w-full p-3 rounded-xl hover:bg-gray-800/70 hover:shadow-md transition-all duration-200 <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['fee_structures.php', 'fee_collection.php', 'payment_history.php', 'add_fee.php', 'edit_fee.php'])) ? 'bg-gradient-to-r from-blue-900/30 to-purple-900/30 border-l-4 border-blue-500' : ''; ?>">
                     <span class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['fee_structures.php', 'fee_collection.php', 'fee_history.php', 'add_fee.php', 'edit_fee.php'])) ? 'bg-blue-500/20' : ''; ?>">
-                            <i class="fas fa-money-bill-wave text-sm <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['fee_structures.php', 'fee_collection.php', 'fee_history.php', 'add_fee.php', 'edit_fee.php'])) ? 'text-blue-400' : 'text-gray-300'; ?>"></i>
+                        <div class="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['fee_structures.php', 'fee_collection.php', 'payment_history.php', 'add_fee.php', 'edit_fee.php'])) ? 'bg-blue-500/20' : ''; ?>">
+                            <i class="fas fa-money-bill-wave text-sm <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['fee_structures.php', 'fee_collection.php', 'payment_history.php', 'add_fee.php', 'edit_fee.php'])) ? 'text-blue-400' : 'text-gray-300'; ?>"></i>
                         </div>
-                        <span class="font-medium <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['fee_structures.php', 'fee_collection.php', 'fee_history.php', 'add_fee.php', 'edit_fee.php'])) ? 'text-blue-300' : ''; ?>">Fees</span>
+                        <span class="font-medium <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['fee_structures.php', 'fee_collection.php', 'payment_history.php', 'add_fee.php', 'edit_fee.php'])) ? 'text-blue-300' : ''; ?>">Fees</span>
                     </span>
-                    <i class="fas fa-chevron-down text-xs transition-transform duration-300 <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['fee_structures.php', 'fee_collection.php', 'fee_history.php', 'add_fee.php', 'edit_fee.php'])) ? 'text-blue-400 rotate-180' : 'text-gray-400'; ?>"
+                    <i class="fas fa-chevron-down text-xs transition-transform duration-300 <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['fee_structures.php', 'fee_collection.php', 'payment_history.php', 'add_fee.php', 'edit_fee.php'])) ? 'text-blue-400 rotate-180' : 'text-gray-400'; ?>"
                         id="feesChevron"></i>
                 </button>
 
-                <div id="feesMenu" class="ml-4 pl-6 border-l border-gray-700 space-y-1 <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['fee_structures.php', 'fee_collection.php', 'fee_history.php', 'add_fee.php', 'edit_fee.php'])) ? '' : 'hidden'; ?>">
+                <div id="feesMenu" class="ml-4 pl-6 border-l border-gray-700 space-y-1 <?php echo (in_array(basename($_SERVER['PHP_SELF']), ['fee_structures.php', 'fee_collection.php', 'payment_history.php', 'add_fee.php', 'edit_fee.php'])) ? '' : 'hidden'; ?>">
                     <a href="/academy_management_system/admin/fees/fee_structures.php"
                         class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/70 transition-colors text-sm <?php echo (basename($_SERVER['PHP_SELF']) == 'fee_structures.php' || basename($_SERVER['PHP_SELF']) == 'add_fee.php' || basename($_SERVER['PHP_SELF']) == 'edit_fee.php') ? 'text-blue-300 bg-gray-800/50' : 'text-gray-300'; ?>">
                         <div class="w-6 h-6 rounded flex items-center justify-center <?php echo (basename($_SERVER['PHP_SELF']) == 'fee_structures.php' || basename($_SERVER['PHP_SELF']) == 'add_fee.php' || basename($_SERVER['PHP_SELF']) == 'edit_fee.php') ? 'bg-blue-500/20' : 'bg-gray-700'; ?>">
@@ -289,13 +289,13 @@
                             <span class="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500"></span>
                         <?php endif; ?>
                     </a>
-                    <a href="/academy_management_system/admin/fees/fee_history.php"
-                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/70 transition-colors text-sm <?php echo (basename($_SERVER['PHP_SELF']) == 'fee_history.php') ? 'text-blue-300 bg-gray-800/50' : 'text-gray-300'; ?>">
-                        <div class="w-6 h-6 rounded flex items-center justify-center <?php echo (basename($_SERVER['PHP_SELF']) == 'fee_history.php') ? 'bg-blue-500/20' : 'bg-gray-700'; ?>">
+                    <a href="/academy_management_system/admin/fees/payment_history.php"
+                        class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-800/70 transition-colors text-sm <?php echo (basename($_SERVER['PHP_SELF']) == 'payment_history.php') ? 'text-blue-300 bg-gray-800/50' : 'text-gray-300'; ?>">
+                        <div class="w-6 h-6 rounded flex items-center justify-center <?php echo (basename($_SERVER['PHP_SELF']) == 'payment_history.php') ? 'bg-blue-500/20' : 'bg-gray-700'; ?>">
                             <i class="fas fa-file-invoice-dollar text-xs"></i>
                         </div>
                         <span>Fee History</span>
-                        <?php if (basename($_SERVER['PHP_SELF']) == 'fee_history.php'): ?>
+                        <?php if (basename($_SERVER['PHP_SELF']) == 'payment_history.php'): ?>
                             <span class="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500"></span>
                         <?php endif; ?>
                     </a>

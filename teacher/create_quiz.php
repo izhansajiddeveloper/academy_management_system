@@ -62,6 +62,7 @@ $stmt_batches->bind_param("i", $teacher_id);
 $stmt_batches->execute();
 $teacher_batches = $stmt_batches->get_result();
 
+
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $batch_id = intval($_POST['batch_id']);
@@ -72,9 +73,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $time_limit = intval($_POST['time_limit']);
     $status = $_POST['status'];
 
+
     // Validate
     if (empty($title) || $batch_id <= 0 || $total_questions <= 0 || $total_marks <= 0) {
-        $_SESSION['error'] = "Please fill all required fields correctly.";
     } else {
         if ($is_edit) {
             // Update existing quiz

@@ -290,7 +290,7 @@ if (isset($_POST['update_progress'])) {
                     $stmt_history->execute();
                 }
             } else {
-                // Get enrollment_id - FIXED: Use the correct parameter
+                // Get enrollment_id
                 $enrollment_query = "SELECT id FROM student_enrollments WHERE student_id = ? AND batch_id = ?";
                 $stmt_enrollment = $conn->prepare($enrollment_query);
                 $stmt_enrollment->bind_param("ii", $student_id, $batch_id);
@@ -309,7 +309,7 @@ if (isset($_POST['update_progress'])) {
                     $session_result = $stmt_session->get_result()->fetch_assoc();
                     $session_id = $session_result['session_id'];
 
-                    // Check if progress record already exists
+                    // Check if progress record already exists for this student, skill, and batch
                     $check_exists_query = "
                     SELECT id FROM skill_progress 
                     WHERE student_id = ? AND skill_id = ? AND batch_id = ?
@@ -468,7 +468,7 @@ if (isset($_SESSION['error_message'])) {
     unset($_SESSION['error_message']);
 }
 
-// Get progress data based on filters
+// Get ALL students enrolled in the batch with their progress data
 $progress_data = [];
 $overall_stats = [
     'total_students' => 0,
@@ -478,44 +478,66 @@ $overall_stats = [
 ];
 
 if ($batch_filter > 0) {
+    // Get ALL enrolled students with their progress (if any)
     $progress_query = "
     SELECT 
-        sp.*,
+        se.id as enrollment_id,
+        s.id as student_id,
         s.name as student_name,
         s.student_code,
+        sk.id as skill_id,
         sk.skill_name,
+        b.id as batch_id,
         b.batch_name,
-        se.session_name,
+        se.session_id,
+        sess.session_name,
+        sp.id as progress_id,
+        sp.topics_completed,
+        sp.total_topics,
+        sp.progress_percent,
+        sp.quiz_score,
+        sp.assignment_score,
+        sp.project_score,
+        sp.overall_performance,
+        sp.performance_level,
+        sp.remarks,
+        sp.status as progress_status,
+        sp.last_updated,
+        sp.created_at,
+        sp.updated_by,
         t.name as updated_by_name,
         spr.overall_grade,
         spr.comments as report_comments,
         spr.report_date
-    FROM skill_progress sp
-    JOIN students s ON sp.student_id = s.id
-    JOIN skills sk ON sp.skill_id = sk.id
-    JOIN batches b ON sp.batch_id = b.id
-    JOIN sessions se ON sp.session_id = se.id
+    FROM student_enrollments se
+    JOIN students s ON se.student_id = s.id
+    JOIN batches b ON se.batch_id = b.id
+    JOIN skills sk ON b.skill_id = sk.id
+    JOIN sessions sess ON b.session_id = sess.id
+    LEFT JOIN skill_progress sp ON se.student_id = sp.student_id 
+        AND se.batch_id = sp.batch_id 
+        AND sp.updated_by = ?
     LEFT JOIN teachers t ON sp.updated_by = t.id
     LEFT JOIN student_progress spr ON s.id = spr.student_id AND b.id = spr.batch_id
-    WHERE sp.batch_id = ? AND sp.updated_by = ?
+    WHERE se.batch_id = ? AND se.status = 'active'
     ";
 
-    $params = [$batch_filter, $teacher_id];
+    $params = [$teacher_id, $batch_filter];
     $param_types = "ii";
 
     if ($student_filter > 0) {
-        $progress_query .= " AND sp.student_id = ?";
+        $progress_query .= " AND s.id = ?";
         $params[] = $student_filter;
         $param_types .= "i";
     }
 
     if ($status_filter !== 'all') {
-        $progress_query .= " AND sp.status = ?";
+        $progress_query .= " AND (sp.status = ? OR sp.status IS NULL)";
         $params[] = $status_filter;
         $param_types .= "s";
     }
 
-    $progress_query .= " ORDER BY sp.overall_performance DESC, s.name";
+    $progress_query .= " ORDER BY s.name";
 
     $stmt_progress = $conn->prepare($progress_query);
     if (!empty($params)) {
@@ -524,19 +546,22 @@ if ($batch_filter > 0) {
     $stmt_progress->execute();
     $progress_data = $stmt_progress->get_result();
 
-    // Calculate overall statistics
+    // Calculate overall statistics - include ALL students in the batch
     $stats_query = "
     SELECT 
-        COUNT(DISTINCT sp.student_id) as total_students,
+        COUNT(DISTINCT se.student_id) as total_students,
         AVG(sp.progress_percent) as avg_progress,
         SUM(CASE WHEN sp.performance_level = 'Excellent' THEN 1 ELSE 0 END) as excellent_count,
         SUM(CASE WHEN sp.status = 'Needs Attention' THEN 1 ELSE 0 END) as needs_attention_count
-    FROM skill_progress sp
-    WHERE sp.batch_id = ? AND sp.updated_by = ?
+    FROM student_enrollments se
+    LEFT JOIN skill_progress sp ON se.student_id = sp.student_id 
+        AND se.batch_id = sp.batch_id 
+        AND sp.updated_by = ?
+    WHERE se.batch_id = ? AND se.status = 'active'
     ";
 
     $stmt_stats = $conn->prepare($stats_query);
-    $stmt_stats->bind_param("ii", $batch_filter, $teacher_id);
+    $stmt_stats->bind_param("ii", $teacher_id, $batch_filter);
     $stmt_stats->execute();
     $stats_result = $stmt_stats->get_result()->fetch_assoc();
 
@@ -656,6 +681,11 @@ if ($batch_filter > 0) {
             color: #991b1b;
         }
 
+        .status-not-started {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+
         .form-input {
             transition: all 0.3s ease;
             border: 2px solid #e5e7eb;
@@ -704,6 +734,17 @@ if ($batch_filter > 0) {
             box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
         }
 
+        .btn-warning {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            transition: all 0.3s ease;
+        }
+
+        .btn-warning:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(245, 158, 11, 0.3);
+        }
+
         .score-indicator {
             height: 8px;
             border-radius: 4px;
@@ -730,6 +771,10 @@ if ($batch_filter > 0) {
 
         .score-poor {
             background: linear-gradient(90deg, #ef4444, #f87171);
+        }
+
+        .score-none {
+            background: linear-gradient(90deg, #9ca3af, #d1d5db);
         }
 
         .grade-badge {
@@ -770,6 +815,20 @@ if ($batch_filter > 0) {
             background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
             color: #991b1b;
             border: 1px solid #ef4444;
+        }
+
+        .no-progress-indicator {
+            width: 60px;
+            height: 4px;
+            background: linear-gradient(90deg, #e5e7eb 25%, #9ca3af 25%, #9ca3af 50%, #e5e7eb 50%, #e5e7eb 75%, #9ca3af 75%);
+            background-size: 20px 4px;
+            border-radius: 2px;
+            animation: progressStripes 1s linear infinite;
+        }
+
+        @keyframes progressStripes {
+            0% { background-position: 0 0; }
+            100% { background-position: 20px 0; }
         }
     </style>
 </head>
@@ -898,6 +957,7 @@ if ($batch_filter > 0) {
                                     <option value="<?php echo $student['student_id']; ?>"
                                         <?php echo $student_filter == $student['student_id'] ? 'selected' : ''; ?>>
                                         <?php echo htmlspecialchars($student['name']); ?>
+                                        (<?php echo htmlspecialchars($student['student_code']); ?>)
                                     </option>
                                 <?php endwhile; ?>
                             </select>
@@ -923,16 +983,16 @@ if ($batch_filter > 0) {
                         </label>
                         <select name="status"
                             class="w-full form-input px-5 py-3.5 rounded-xl text-gray-700 font-medium">
-                            <option value="all" <?php echo $status_filter === 'all' ? 'selected' : ''; ?>>All Status</option>
-                            <option value="Active" <?php echo $status_filter === 'Active' ? 'selected' : ''; ?>>Active</option>
-                            <option value="Completed" <?php echo $status_filter === 'Completed' ? 'selected' : ''; ?>>Completed</option>
+                            <option value="all" <?php echo $status_filter === 'all' ? 'selected' : ''; ?>>All Students</option>
+                            <option value="Active" <?php echo $status_filter === 'Active' ? 'selected' : ''; ?>>With Progress</option>
+                            <option value="Not Started" <?php echo $status_filter === 'Not Started' ? 'selected' : ''; ?>>Without Progress</option>
                             <option value="Needs Attention" <?php echo $status_filter === 'Needs Attention' ? 'selected' : ''; ?>>Needs Attention</option>
                         </select>
                     </div>
 
                     <div class="lg:col-span-1 flex items-end gap-3">
                         <button type="submit"
-                            class="w-full btn-primary px-6 py-3.5 rounded-xl font-bold text-lg flex items-center justify-center gap-3">
+                            class="w-full btn-primary px-4 py-1.4 rounded-lg font-bold text-base flex items-center justify-center gap-3">
                             <i class="fas fa-search"></i>
                             Apply Filters
                         </button>
@@ -960,7 +1020,7 @@ if ($batch_filter > 0) {
                         </div>
                         <p class="text-xs text-gray-500 mt-3">
                             <i class="fas fa-info-circle mr-1"></i>
-                            Students with progress records
+                            All enrolled students in this batch
                         </p>
                     </div>
 
@@ -1022,21 +1082,26 @@ if ($batch_filter > 0) {
                         <div>
                             <h3 class="text-xl font-bold text-gray-800 flex items-center gap-3">
                                 <i class="fas fa-list-check text-primary"></i>
-                                Student Progress Records
+                                All Students in Batch
                                 <span class="text-sm bg-primary text-white px-3 py-1 rounded-full">
-                                    <?php echo $progress_data->num_rows; ?> Records
+                                    <?php echo $progress_data->num_rows; ?> Students
                                 </span>
                             </h3>
                             <p class="text-sm text-gray-600 mt-2">
                                 <i class="fas fa-info-circle mr-2"></i>
-                                Click on a student to view details and update progress
+                                Showing all students enrolled in this batch. Click to view details or add progress.
                             </p>
                         </div>
                         <div class="flex gap-3">
                             <button onclick="showUpdateProgressModal()"
                                 class="btn-success px-6 py-3 rounded-xl font-bold text-lg flex items-center gap-3">
                                 <i class="fas fa-plus"></i>
-                                Add Skill Progress
+                                Add Progress
+                            </button>
+                            <button onclick="showBulkProgressModal()"
+                                class="btn-warning px-6 py-3 rounded-xl font-bold text-lg flex items-center gap-3">
+                                <i class="fas fa-users"></i>
+                                Bulk Update
                             </button>
                         </div>
                     </div>
@@ -1047,28 +1112,31 @@ if ($batch_filter > 0) {
                                 <thead>
                                     <tr class="bg-gradient-to-r from-gray-100 to-gray-50 text-left">
                                         <th class="py-4 px-6 font-bold text-gray-700 text-sm uppercase tracking-wider">Student</th>
+                                        <th class="py-4 px-6 font-bold text-gray-700 text-sm uppercase tracking-wider">Progress Status</th>
                                         <th class="py-4 px-6 font-bold text-gray-700 text-sm uppercase tracking-wider">Progress</th>
                                         <th class="py-4 px-6 font-bold text-gray-700 text-sm uppercase tracking-wider">Overall Grade</th>
                                         <th class="py-4 px-6 font-bold text-gray-700 text-sm uppercase tracking-wider">Performance Level</th>
                                         <th class="py-4 px-6 font-bold text-gray-700 text-sm uppercase tracking-wider">Scores</th>
-                                        <th class="py-4 px-6 font-bold text-gray-700 text-sm uppercase tracking-wider">Status</th>
-                                        <th class="py-4 px-6 font-bold text-gray-700 text-sm uppercase tracking-wider">Updated</th>
+                                        <th class="py-4 px-6 font-bold text-gray-700 text-sm uppercase tracking-wider">Last Updated</th>
                                         <th class="py-4 px-6 font-bold text-gray-700 text-sm uppercase tracking-wider">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-200">
                                     <?php
                                     $progress_data->data_seek(0);
-                                    while ($row = $progress_data->fetch_assoc()): ?>
+                                    while ($row = $progress_data->fetch_assoc()): 
+                                        $has_progress = !empty($row['progress_id']);
+                                    ?>
                                         <?php
                                         // Calculate color based on progress percentage
+                                        $progress_percent = $has_progress ? $row['progress_percent'] : 0;
                                         $progress_color = '';
-                                        if ($row['progress_percent'] >= 80) {
+                                        if ($progress_percent >= 80) {
                                             $progress_color = 'text-green-600';
-                                        } elseif ($row['progress_percent'] >= 50) {
+                                        } elseif ($progress_percent >= 50) {
                                             $progress_color = 'text-yellow-600';
                                         } else {
-                                            $progress_color = 'text-red-600';
+                                            $progress_color = 'text-gray-400';
                                         }
 
                                         // Grade badge class
@@ -1114,23 +1182,68 @@ if ($batch_filter > 0) {
                                                 </div>
                                             </td>
                                             <td class="py-5 px-6">
-                                                <div class="space-y-2">
-                                                    <div class="flex justify-between items-center">
-                                                        <span class="font-bold <?php echo $progress_color; ?>">
-                                                            <?php echo $row['progress_percent']; ?>%
-                                                        </span>
-                                                        <span class="text-sm text-gray-500">
-                                                            <?php echo $row['topics_completed']; ?>/<?php echo $row['total_topics']; ?> topics
-                                                        </span>
-                                                    </div>
-                                                    <div class="h-3 bg-gray-200 rounded-full overflow-hidden">
-                                                        <div class="h-full rounded-full bg-gradient-to-r 
-                                                            <?php echo $row['progress_percent'] >= 80 ? 'from-green-500 to-emerald-500' : ($row['progress_percent'] >= 50 ? 'from-yellow-500 to-amber-500' :
-                                                                'from-red-500 to-rose-500'); ?>"
-                                                            style="width: <?php echo min($row['progress_percent'], 100); ?>%">
+                                                <?php if ($has_progress): ?>
+                                                    <?php
+                                                    $status_class = '';
+                                                    switch ($row['progress_status']) {
+                                                        case 'Active':
+                                                            $status_class = 'status-active';
+                                                            break;
+                                                        case 'Completed':
+                                                            $status_class = 'status-completed';
+                                                            break;
+                                                        case 'Needs Attention':
+                                                            $status_class = 'status-needs-attention';
+                                                            break;
+                                                        default:
+                                                            $status_class = 'status-active';
+                                                    }
+                                                    ?>
+                                                    <span class="status-badge <?php echo $status_class; ?>">
+                                                        <i class="fas 
+                                                            <?php echo $row['progress_status'] == 'Active' ? 'fa-play-circle' : ($row['progress_status'] == 'Completed' ? 'fa-check-circle' : 'fa-exclamation-circle'); ?> mr-1">
+                                                        </i>
+                                                        <?php echo $row['progress_status'] ?: 'Active'; ?>
+                                                    </span>
+                                                <?php else: ?>
+                                                    <span class="status-badge status-not-started">
+                                                        <i class="fas fa-clock mr-1"></i>
+                                                        Not Started
+                                                    </span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td class="py-5 px-6">
+                                                <?php if ($has_progress): ?>
+                                                    <div class="space-y-2">
+                                                        <div class="flex justify-between items-center">
+                                                            <span class="font-bold <?php echo $progress_color; ?>">
+                                                                <?php echo $progress_percent; ?>%
+                                                            </span>
+                                                            <span class="text-sm text-gray-500">
+                                                                <?php echo $row['topics_completed']; ?>/<?php echo $row['total_topics']; ?> topics
+                                                            </span>
+                                                        </div>
+                                                        <div class="h-3 bg-gray-200 rounded-full overflow-hidden">
+                                                            <div class="h-full rounded-full bg-gradient-to-r 
+                                                                <?php echo $progress_percent >= 80 ? 'from-green-500 to-emerald-500' : ($progress_percent >= 50 ? 'from-yellow-500 to-amber-500' :
+                                                                    'from-gray-400 to-gray-500'); ?>"
+                                                                style="width: <?php echo min($progress_percent, 100); ?>%">
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
+                                                <?php else: ?>
+                                                    <div class="space-y-2">
+                                                        <div class="flex justify-between items-center">
+                                                            <span class="font-bold text-gray-400">
+                                                                0%
+                                                            </span>
+                                                            <span class="text-sm text-gray-500">
+                                                                0/0 topics
+                                                            </span>
+                                                        </div>
+                                                        <div class="no-progress-indicator"></div>
+                                                    </div>
+                                                <?php endif; ?>
                                             </td>
                                             <td class="py-5 px-6">
                                                 <?php if ($row['overall_grade']): ?>
@@ -1154,115 +1267,133 @@ if ($batch_filter > 0) {
                                                 <?php endif; ?>
                                             </td>
                                             <td class="py-5 px-6">
-                                                <?php
-                                                $badge_class = '';
-                                                switch ($row['performance_level']) {
-                                                    case 'Excellent':
-                                                        $badge_class = 'badge-excellent';
-                                                        break;
-                                                    case 'Advanced':
-                                                        $badge_class = 'badge-advanced';
-                                                        break;
-                                                    case 'Intermediate':
-                                                        $badge_class = 'badge-intermediate';
-                                                        break;
-                                                    case 'Beginner':
-                                                        $badge_class = 'badge-beginner';
-                                                        break;
-                                                }
-                                                ?>
-                                                <div class="<?php echo $badge_class; ?> performance-badge">
-                                                    <i class="fas 
-                                                        <?php echo $row['performance_level'] == 'Excellent' ? 'fa-star' : ($row['performance_level'] == 'Advanced' ? 'fa-arrow-up' : ($row['performance_level'] == 'Intermediate' ? 'fa-chart-line' : 'fa-user-graduate')); ?>">
-                                                    </i>
-                                                    <?php echo $row['performance_level']; ?>
-                                                </div>
+                                                <?php if ($has_progress && $row['performance_level']): ?>
+                                                    <?php
+                                                    $badge_class = '';
+                                                    switch ($row['performance_level']) {
+                                                        case 'Excellent':
+                                                            $badge_class = 'badge-excellent';
+                                                            break;
+                                                        case 'Advanced':
+                                                            $badge_class = 'badge-advanced';
+                                                            break;
+                                                        case 'Intermediate':
+                                                            $badge_class = 'badge-intermediate';
+                                                            break;
+                                                        case 'Beginner':
+                                                            $badge_class = 'badge-beginner';
+                                                            break;
+                                                    }
+                                                    ?>
+                                                    <div class="<?php echo $badge_class; ?> performance-badge">
+                                                        <i class="fas 
+                                                            <?php echo $row['performance_level'] == 'Excellent' ? 'fa-star' : ($row['performance_level'] == 'Advanced' ? 'fa-arrow-up' : ($row['performance_level'] == 'Intermediate' ? 'fa-chart-line' : 'fa-user-graduate')); ?>">
+                                                        </i>
+                                                        <?php echo $row['performance_level']; ?>
+                                                    </div>
+                                                <?php else: ?>
+                                                    <span class="text-gray-400 italic text-sm">Not assessed</span>
+                                                <?php endif; ?>
                                             </td>
                                             <td class="py-5 px-6">
-                                                <div class="space-y-2">
-                                                    <div class="flex items-center gap-3">
-                                                        <span class="text-sm text-gray-600 w-20">Quiz:</span>
-                                                        <div class="flex-1">
-                                                            <div class="score-indicator">
-                                                                <div class="score-fill 
-                                                                    <?php echo $row['quiz_score'] >= 80 ? 'score-excellent' : ($row['quiz_score'] >= 60 ? 'score-good' : ($row['quiz_score'] >= 40 ? 'score-average' : 'score-poor')); ?>"
-                                                                    style="width: <?php echo $row['quiz_score']; ?>%">
+                                                <?php if ($has_progress): ?>
+                                                    <div class="space-y-2">
+                                                        <div class="flex items-center gap-3">
+                                                            <span class="text-sm text-gray-600 w-16">Quiz:</span>
+                                                            <div class="flex-1">
+                                                                <div class="score-indicator">
+                                                                    <div class="score-fill 
+                                                                        <?php echo $row['quiz_score'] >= 80 ? 'score-excellent' : ($row['quiz_score'] >= 60 ? 'score-good' : ($row['quiz_score'] >= 40 ? 'score-average' : 'score-poor')); ?>"
+                                                                        style="width: <?php echo $row['quiz_score']; ?>%">
+                                                                    </div>
                                                                 </div>
+                                                                <span class="text-xs font-medium text-gray-700"><?php echo $row['quiz_score']; ?>%</span>
                                                             </div>
-                                                            <span class="text-xs font-medium text-gray-700"><?php echo $row['quiz_score']; ?>%</span>
+                                                        </div>
+                                                        <div class="flex items-center gap-3">
+                                                            <span class="text-sm text-gray-600 w-16">Assign:</span>
+                                                            <div class="flex-1">
+                                                                <div class="score-indicator">
+                                                                    <div class="score-fill 
+                                                                        <?php echo $row['assignment_score'] >= 80 ? 'score-excellent' : ($row['assignment_score'] >= 60 ? 'score-good' : ($row['assignment_score'] >= 40 ? 'score-average' : 'score-poor')); ?>"
+                                                                        style="width: <?php echo $row['assignment_score']; ?>%">
+                                                                    </div>
+                                                                </div>
+                                                                <span class="text-xs font-medium text-gray-700"><?php echo $row['assignment_score']; ?>%</span>
+                                                            </div>
+                                                        </div>
+                                                        <?php if ($row['overall_performance']): ?>
+                                                        <div class="flex items-center gap-3">
+                                                            <span class="text-sm text-gray-600 w-16">Overall:</span>
+                                                            <div class="flex-1">
+                                                                <div class="score-indicator">
+                                                                    <div class="score-fill 
+                                                                        <?php echo $row['overall_performance'] >= 80 ? 'score-excellent' : ($row['overall_performance'] >= 60 ? 'score-good' : ($row['overall_performance'] >= 40 ? 'score-average' : 'score-poor')); ?>"
+                                                                        style="width: <?php echo $row['overall_performance']; ?>%">
+                                                                    </div>
+                                                                </div>
+                                                                <span class="text-xs font-medium text-gray-700"><?php echo $row['overall_performance']; ?>%</span>
+                                                            </div>
+                                                        </div>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                <?php else: ?>
+                                                    <div class="space-y-2">
+                                                        <div class="flex items-center gap-3">
+                                                            <span class="text-sm text-gray-600 w-16">Quiz:</span>
+                                                            <div class="flex-1">
+                                                                <div class="score-indicator">
+                                                                    <div class="score-fill score-none" style="width: 0%"></div>
+                                                                </div>
+                                                                <span class="text-xs font-medium text-gray-400">0%</span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="flex items-center gap-3">
+                                                            <span class="text-sm text-gray-600 w-16">Assign:</span>
+                                                            <div class="flex-1">
+                                                                <div class="score-indicator">
+                                                                    <div class="score-fill score-none" style="width: 0%"></div>
+                                                                </div>
+                                                                <span class="text-xs font-medium text-gray-400">0%</span>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    <div class="flex items-center gap-3">
-                                                        <span class="text-sm text-gray-600 w-20">Assignment:</span>
-                                                        <div class="flex-1">
-                                                            <div class="score-indicator">
-                                                                <div class="score-fill 
-                                                                    <?php echo $row['assignment_score'] >= 80 ? 'score-excellent' : ($row['assignment_score'] >= 60 ? 'score-good' : ($row['assignment_score'] >= 40 ? 'score-average' : 'score-poor')); ?>"
-                                                                    style="width: <?php echo $row['assignment_score']; ?>%">
-                                                                </div>
-                                                            </div>
-                                                            <span class="text-xs font-medium text-gray-700"><?php echo $row['assignment_score']; ?>%</span>
-                                                        </div>
-                                                    </div>
-                                                    <div class="flex items-center gap-3">
-                                                        <span class="text-sm text-gray-600 w-20">Overall:</span>
-                                                        <div class="flex-1">
-                                                            <div class="score-indicator">
-                                                                <div class="score-fill 
-                                                                    <?php echo $row['overall_performance'] >= 80 ? 'score-excellent' : ($row['overall_performance'] >= 60 ? 'score-good' : ($row['overall_performance'] >= 40 ? 'score-average' : 'score-poor')); ?>"
-                                                                    style="width: <?php echo $row['overall_performance']; ?>%">
-                                                                </div>
-                                                            </div>
-                                                            <span class="text-xs font-medium text-gray-700"><?php echo $row['overall_performance']; ?>%</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td class="py-5 px-6">
-                                                <?php
-                                                $status_class = '';
-                                                switch ($row['status']) {
-                                                    case 'Active':
-                                                        $status_class = 'status-active';
-                                                        break;
-                                                    case 'Completed':
-                                                        $status_class = 'status-completed';
-                                                        break;
-                                                    case 'Needs Attention':
-                                                        $status_class = 'status-needs-attention';
-                                                        break;
-                                                }
-                                                ?>
-                                                <span class="status-badge <?php echo $status_class; ?>">
-                                                    <i class="fas 
-                                                        <?php echo $row['status'] == 'Active' ? 'fa-play-circle' : ($row['status'] == 'Completed' ? 'fa-check-circle' : 'fa-exclamation-circle'); ?> mr-1">
-                                                    </i>
-                                                    <?php echo $row['status']; ?>
-                                                </span>
+                                                <?php endif; ?>
                                             </td>
                                             <td class="py-5 px-6">
                                                 <div class="text-sm">
-                                                    <div class="text-gray-800 font-medium">
-                                                        <?php echo date('M d, Y', strtotime($row['last_updated'])); ?>
-                                                    </div>
-                                                    <div class="text-gray-500 text-xs">
-                                                        <?php echo date('h:i A', strtotime($row['last_updated'])); ?>
-                                                    </div>
-                                                    <?php if ($row['updated_by_name']): ?>
-                                                        <div class="text-gray-400 text-xs mt-1">
-                                                            <i class="fas fa-user-tie mr-1"></i>
-                                                            <?php echo htmlspecialchars($row['updated_by_name']); ?>
+                                                    <?php if ($has_progress && $row['last_updated']): ?>
+                                                        <div class="text-gray-800 font-medium">
+                                                            <?php echo date('M d, Y', strtotime($row['last_updated'])); ?>
                                                         </div>
+                                                        <div class="text-gray-500 text-xs">
+                                                            <?php echo date('h:i A', strtotime($row['last_updated'])); ?>
+                                                        </div>
+                                                        <?php if ($row['updated_by_name']): ?>
+                                                            <div class="text-gray-400 text-xs mt-1">
+                                                                <i class="fas fa-user-tie mr-1"></i>
+                                                                <?php echo htmlspecialchars($row['updated_by_name']); ?>
+                                                            </div>
+                                                        <?php endif; ?>
+                                                    <?php else: ?>
+                                                        <div class="text-gray-400 italic">Not updated yet</div>
                                                     <?php endif; ?>
                                                 </div>
                                             </td>
                                             <td class="py-5 px-6">
                                                 <div class="flex items-center gap-2">
-                                                    <button onclick="event.stopPropagation(); editProgress(<?php echo htmlspecialchars(json_encode($row)); ?>)"
-                                                        class="px-4 py-2 bg-gradient-to-r from-primary to-primary-dark text-blue-500 rounded-lg hover:opacity-90 transition-opacity">
-                                                        <i class="fas fa-edit mr-1"></i> Edit
-                                                    </button>
-                                                    <button onclick="event.stopPropagation(); showUpdateReportModal(<?php echo $row['student_id']; ?>, '<?php echo htmlspecialchars($row['student_name']); ?>', '<?php echo $row['overall_grade']; ?>', '<?php echo htmlspecialchars($row['report_comments']); ?>')"
+                                                    <?php if ($has_progress): ?>
+                                                        <button onclick="event.stopPropagation(); editProgress(<?php echo htmlspecialchars(json_encode($row)); ?>)"
+                                                            class="px-4 py-2 bg-gradient-to-r from-primary to-primary-dark text-Blue rounded-lg hover:opacity-90 transition-opacity">
+                                                            <i class="fas fa-edit mr-1"></i> Edit
+                                                        </button>
+                                                    <?php else: ?>
+                                                        <button onclick="event.stopPropagation(); addInitialProgress(<?php echo $row['student_id']; ?>, '<?php echo htmlspecialchars($row['student_name']); ?>', <?php echo $row['skill_id']; ?>, '<?php echo htmlspecialchars($row['skill_name']); ?>')"
+                                                            class="px-4 py-2 btn-success rounded-lg hover:opacity-90 transition-opacity">
+                                                            <i class="fas fa-plus mr-1"></i> Add
+                                                        </button>
+                                                    <?php endif; ?>
+                                                    <button onclick="event.stopPropagation(); showUpdateReportModal(<?php echo $row['student_id']; ?>, '<?php echo htmlspecialchars($row['student_name']); ?>', '<?php echo $row['overall_grade'] ?? ''; ?>', '<?php echo htmlspecialchars($row['report_comments'] ?? ''); ?>')"
                                                         class="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg hover:opacity-90 transition-opacity">
                                                         <i class="fas fa-file-alt mr-1"></i> Report
                                                     </button>
@@ -1276,17 +1407,12 @@ if ($batch_filter > 0) {
                     <?php else: ?>
                         <div class="text-center py-16">
                             <div class="mx-auto w-32 h-32 bg-gradient-to-r from-gray-200 to-gray-300 rounded-full flex items-center justify-center mb-6">
-                                <i class="fas fa-chart-line text-gray-400 text-5xl"></i>
+                                <i class="fas fa-users text-gray-400 text-5xl"></i>
                             </div>
-                            <h3 class="text-2xl font-bold text-gray-700 mb-3">No Progress Records Found</h3>
+                            <h3 class="text-2xl font-bold text-gray-700 mb-3">No Students Found</h3>
                             <p class="text-gray-500 mb-8 max-w-md mx-auto">
-                                No student progress records found for the selected filters. Start by adding progress records for students.
+                                No students are enrolled in the selected batch or match your filters.
                             </p>
-                            <button onclick="showUpdateProgressModal()"
-                                class="btn-success px-8 py-3.5 rounded-xl font-bold text-lg flex items-center gap-3 mx-auto">
-                                <i class="fas fa-plus"></i>
-                                Add Your First Progress Record
-                            </button>
                         </div>
                     <?php endif; ?>
                 </div>
@@ -1358,7 +1484,7 @@ if ($batch_filter > 0) {
                     </button>
                 </div>
 
-                <form method="POST" action="">
+                <form method="POST" action="" id="progressForm">
                     <input type="hidden" name="progress_id" id="progress_id" value="0">
                     <input type="hidden" name="student_id" id="modal_student_id" value="0">
                     <input type="hidden" name="batch_id" id="modal_batch_id" value="<?php echo $batch_filter; ?>">
@@ -1370,12 +1496,14 @@ if ($batch_filter > 0) {
                                 <label class="block text-sm font-semibold text-gray-700 mb-2">Student *</label>
                                 <select name="student_id_select" id="student_id_select"
                                     class="w-full form-input px-4 py-3 rounded-lg" required
-                                    onchange="document.getElementById('modal_student_id').value = this.value">
+                                    onchange="updateStudentSelection()">
                                     <option value="">Select Student</option>
                                     <?php if ($batch_filter > 0): ?>
                                         <?php $students->data_seek(0); ?>
                                         <?php while ($student = $students->fetch_assoc()): ?>
-                                            <option value="<?php echo $student['student_id']; ?>">
+                                            <option value="<?php echo $student['student_id']; ?>"
+                                                data-name="<?php echo htmlspecialchars($student['name']); ?>"
+                                                data-code="<?php echo htmlspecialchars($student['student_code']); ?>">
                                                 <?php echo htmlspecialchars($student['name']); ?>
                                                 (<?php echo htmlspecialchars($student['student_code']); ?>)
                                             </option>
@@ -1404,6 +1532,18 @@ if ($batch_filter > 0) {
                             </div>
                         </div>
 
+                        <div id="studentInfo" class="hidden p-4 bg-blue-50 rounded-lg mb-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 bg-gradient-to-r from-blue-100 to-blue-200 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-user-graduate text-blue-600"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-gray-800" id="selectedStudentName"></h4>
+                                    <p class="text-sm text-gray-600" id="selectedStudentCode"></p>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label class="block text-sm font-semibold text-gray-700 mb-2">Topics Completed *</label>
@@ -1416,7 +1556,7 @@ if ($batch_filter > 0) {
                                 <label class="block text-sm font-semibold text-gray-700 mb-2">Total Topics *</label>
                                 <input type="number" name="total_topics" id="total_topics"
                                     class="w-full form-input px-4 py-3 rounded-lg"
-                                    min="1" value="1" required>
+                                    min="1" value="10" required>
                             </div>
                         </div>
 
@@ -1536,23 +1676,23 @@ if ($batch_filter > 0) {
             const content = document.getElementById('studentDetailsContent');
 
             // Format dates
-            const lastUpdated = new Date(studentData.last_updated).toLocaleDateString('en-US', {
+            const lastUpdated = studentData.last_updated ? new Date(studentData.last_updated).toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric',
                 hour: '2-digit',
                 minute: '2-digit'
-            });
+            }) : 'Not updated yet';
 
-            const createdDate = new Date(studentData.created_at).toLocaleDateString('en-US', {
+            const createdDate = studentData.created_at ? new Date(studentData.created_at).toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric'
-            });
+            }) : 'Not created yet';
 
             // Determine progress color
-            let progressColor = 'text-red-600';
-            let progressBarColor = 'from-red-500 to-rose-500';
+            let progressColor = 'text-gray-400';
+            let progressBarColor = 'from-gray-400 to-gray-500';
             if (studentData.progress_percent >= 80) {
                 progressColor = 'text-green-600';
                 progressBarColor = 'from-green-500 to-emerald-500';
@@ -1563,19 +1703,23 @@ if ($batch_filter > 0) {
 
             // Performance level badge
             let performanceBadge = '';
-            switch (studentData.performance_level) {
-                case 'Excellent':
-                    performanceBadge = '<span class="badge-excellent performance-badge"><i class="fas fa-star"></i> Excellent</span>';
-                    break;
-                case 'Advanced':
-                    performanceBadge = '<span class="badge-advanced performance-badge"><i class="fas fa-arrow-up"></i> Advanced</span>';
-                    break;
-                case 'Intermediate':
-                    performanceBadge = '<span class="badge-intermediate performance-badge"><i class="fas fa-chart-line"></i> Intermediate</span>';
-                    break;
-                case 'Beginner':
-                    performanceBadge = '<span class="badge-beginner performance-badge"><i class="fas fa-user-graduate"></i> Beginner</span>';
-                    break;
+            if (studentData.performance_level) {
+                switch (studentData.performance_level) {
+                    case 'Excellent':
+                        performanceBadge = '<span class="badge-excellent performance-badge"><i class="fas fa-star"></i> Excellent</span>';
+                        break;
+                    case 'Advanced':
+                        performanceBadge = '<span class="badge-advanced performance-badge"><i class="fas fa-arrow-up"></i> Advanced</span>';
+                        break;
+                    case 'Intermediate':
+                        performanceBadge = '<span class="badge-intermediate performance-badge"><i class="fas fa-chart-line"></i> Intermediate</span>';
+                        break;
+                    case 'Beginner':
+                        performanceBadge = '<span class="badge-beginner performance-badge"><i class="fas fa-user-graduate"></i> Beginner</span>';
+                        break;
+                }
+            } else {
+                performanceBadge = '<span class="text-gray-400 italic">Not assessed</span>';
             }
 
             // Grade badge
@@ -1606,16 +1750,22 @@ if ($batch_filter > 0) {
 
             // Status badge
             let statusBadge = '';
-            switch (studentData.status) {
-                case 'Active':
-                    statusBadge = '<span class="status-badge status-active"><i class="fas fa-play-circle"></i> Active</span>';
-                    break;
-                case 'Completed':
-                    statusBadge = '<span class="status-badge status-completed"><i class="fas fa-check-circle"></i> Completed</span>';
-                    break;
-                case 'Needs Attention':
-                    statusBadge = '<span class="status-badge status-needs-attention"><i class="fas fa-exclamation-circle"></i> Needs Attention</span>';
-                    break;
+            if (studentData.progress_status) {
+                switch (studentData.progress_status) {
+                    case 'Active':
+                        statusBadge = '<span class="status-badge status-active"><i class="fas fa-play-circle"></i> Active</span>';
+                        break;
+                    case 'Completed':
+                        statusBadge = '<span class="status-badge status-completed"><i class="fas fa-check-circle"></i> Completed</span>';
+                        break;
+                    case 'Needs Attention':
+                        statusBadge = '<span class="status-badge status-needs-attention"><i class="fas fa-exclamation-circle"></i> Needs Attention</span>';
+                        break;
+                    default:
+                        statusBadge = '<span class="status-badge status-not-started"><i class="fas fa-clock"></i> Not Started</span>';
+                }
+            } else {
+                statusBadge = '<span class="status-badge status-not-started"><i class="fas fa-clock"></i> Not Started</span>';
             }
 
             content.innerHTML = `
@@ -1644,6 +1794,10 @@ if ($batch_filter > 0) {
                                     <span class="text-gray-600 w-32">Batch:</span>
                                     <span class="font-medium">${studentData.batch_name}</span>
                                 </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="text-gray-600 w-32">Enrollment Status:</span>
+                                    <span class="font-medium">${studentData.enrollment_status || 'Active'}</span>
+                                </div>
                             </div>
                         </div>
                         
@@ -1654,6 +1808,10 @@ if ($batch_filter > 0) {
                             </h4>
                             <div class="space-y-4">
                                 <div class="flex justify-between items-center">
+                                    <span class="text-gray-600">Progress Status:</span>
+                                    ${statusBadge}
+                                </div>
+                                <div class="flex justify-between items-center">
                                     <span class="text-gray-600">Overall Grade:</span>
                                     ${gradeBadge}
                                 </div>
@@ -1661,16 +1819,14 @@ if ($batch_filter > 0) {
                                     <span class="text-gray-600">Performance Level:</span>
                                     ${performanceBadge}
                                 </div>
+                                ${studentData.overall_performance ? `
                                 <div class="flex justify-between items-center">
                                     <span class="text-gray-600">Overall Score:</span>
                                     <span class="font-bold text-lg ${studentData.overall_performance >= 60 ? 'text-green-600' : 'text-red-600'}">
                                         ${studentData.overall_performance}%
                                     </span>
                                 </div>
-                                <div class="flex justify-between items-center">
-                                    <span class="text-gray-600">Status:</span>
-                                    ${statusBadge}
-                                </div>
+                                ` : ''}
                                 ${studentData.report_date ? `
                                 <div class="text-sm text-gray-500 border-t pt-3">
                                     Last Report: ${new Date(studentData.report_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
@@ -1694,17 +1850,18 @@ if ($batch_filter > 0) {
                                         <p class="text-sm text-gray-500">Topics completed vs total topics</p>
                                     </div>
                                     <div class="text-right">
-                                        <span class="text-3xl font-bold ${progressColor}">${studentData.progress_percent}%</span>
-                                        <p class="text-sm text-gray-500">${studentData.topics_completed}/${studentData.total_topics} topics</p>
+                                        <span class="text-3xl font-bold ${progressColor}">${studentData.progress_percent || 0}%</span>
+                                        <p class="text-sm text-gray-500">${studentData.topics_completed || 0}/${studentData.total_topics || 0} topics</p>
                                     </div>
                                 </div>
                                 <div class="h-4 bg-gray-200 rounded-full overflow-hidden">
                                     <div class="h-full rounded-full bg-gradient-to-r ${progressBarColor}" 
-                                         style="width: ${studentData.progress_percent}%">
+                                         style="width: ${studentData.progress_percent || 0}%">
                                     </div>
                                 </div>
                             </div>
                             
+                            ${studentData.quiz_score !== null ? `
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div class="text-center">
                                     <div class="text-2xl font-bold text-blue-600 mb-2">${studentData.quiz_score}%</div>
@@ -1736,6 +1893,19 @@ if ($batch_filter > 0) {
                                     </div>
                                 </div>
                             </div>
+                            ` : `
+                            <div class="text-center py-8">
+                                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <i class="fas fa-chart-line text-gray-400 text-2xl"></i>
+                                </div>
+                                <h5 class="text-lg font-semibold text-gray-700 mb-2">No Progress Data</h5>
+                                <p class="text-gray-500">Progress data has not been added for this student yet.</p>
+                                <button onclick="addInitialProgress(${studentData.student_id}, '${studentData.student_name}', ${studentData.skill_id}, '${studentData.skill_name}')"
+                                        class="mt-4 px-4 py-2 btn-success rounded-lg">
+                                    <i class="fas fa-plus mr-2"></i> Add Progress Now
+                                </button>
+                            </div>
+                            `}
                         </div>
                     </div>
                     
@@ -1747,7 +1917,7 @@ if ($batch_filter > 0) {
                             Teacher Report Comments
                         </h4>
                         <div class="bg-gray-50 p-4 rounded-lg">
-                            <p class="text-gray-700 whitespace-pre-wrap">${studentData.report_comments}</p>
+                            <p class="text-gray-700 whitespace-pre-wrap">${studentData.report_comments || 'No comments provided.'}</p>
                         </div>
                     </div>
                     ` : ''}
@@ -1798,9 +1968,10 @@ if ($batch_filter > 0) {
                     </div>
                     
                     <div class="flex justify-end gap-4 pt-6 border-t">
-                        <button onclick="editProgress(${JSON.stringify(studentData)})"
+                        <button onclick="${studentData.progress_id ? `editProgress(${JSON.stringify(studentData)})` : `addInitialProgress(${studentData.student_id}, '${studentData.student_name}', ${studentData.skill_id}, '${studentData.skill_name}')`}"
                                 class="px-6 py-3 bg-gradient-to-r from-primary to-primary-dark text-white rounded-lg hover:opacity-90 transition-opacity">
-                            <i class="fas fa-edit mr-2"></i> Edit Progress
+                            <i class="fas ${studentData.progress_id ? 'fa-edit' : 'fa-plus'} mr-2"></i> 
+                            ${studentData.progress_id ? 'Edit Progress' : 'Add Progress'}
                         </button>
                         <button onclick="showUpdateReportModal(${studentData.student_id}, '${studentData.student_name}', '${studentData.overall_grade || ''}', \`${studentData.report_comments || ''}\`)"
                                 class="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg hover:opacity-90 transition-opacity">
@@ -1832,15 +2003,18 @@ if ($batch_filter > 0) {
 
             const modal = document.getElementById('updateProgressModal');
             const modalTitle = document.getElementById('modalTitle');
-            const form = modal.querySelector('form');
+            const form = document.getElementById('progressForm');
 
             // Reset form
             form.reset();
             document.getElementById('progress_id').value = '0';
             document.getElementById('modal_student_id').value = '0';
             document.getElementById('student_id_select').value = '';
+            document.getElementById('selectedStudentName').textContent = '';
+            document.getElementById('selectedStudentCode').textContent = '';
+            document.getElementById('studentInfo').classList.add('hidden');
             document.getElementById('topics_completed').value = '0';
-            document.getElementById('total_topics').value = '1';
+            document.getElementById('total_topics').value = '10';
             document.getElementById('quiz_score').value = '0';
             document.getElementById('assignment_score').value = '0';
             document.getElementById('project_score').value = '0';
@@ -1852,30 +2026,91 @@ if ($batch_filter > 0) {
             modal.classList.add('flex');
         }
 
-        function editProgress(studentData) {
+        function addInitialProgress(studentId, studentName, skillId, skillName) {
             const modal = document.getElementById('updateProgressModal');
             const modalTitle = document.getElementById('modalTitle');
-            const form = modal.querySelector('form');
+            const form = document.getElementById('progressForm');
 
-            // Fill form with existing data
-            document.getElementById('progress_id').value = studentData.id;
-            document.getElementById('modal_student_id').value = studentData.student_id;
-            document.getElementById('student_id_select').value = studentData.student_id;
-            document.getElementById('modal_skill_id').value = studentData.skill_id;
-            document.getElementById('topics_completed').value = studentData.topics_completed;
-            document.getElementById('total_topics').value = studentData.total_topics;
-            document.getElementById('quiz_score').value = studentData.quiz_score;
-            document.getElementById('assignment_score').value = studentData.assignment_score;
-            document.getElementById('project_score').value = studentData.project_score;
-            document.getElementById('status').value = studentData.status;
-            document.getElementById('remarks').value = studentData.remarks;
+            // Reset form
+            form.reset();
+            document.getElementById('progress_id').value = '0';
+            document.getElementById('modal_student_id').value = studentId;
+            document.getElementById('modal_skill_id').value = skillId;
+            
+            // Set student selection
+            const studentSelect = document.getElementById('student_id_select');
+            studentSelect.value = studentId;
+            
+            // Update student info display
+            document.getElementById('selectedStudentName').textContent = studentName;
+            document.getElementById('selectedStudentCode').textContent = 'Student ID: ' + studentId;
+            document.getElementById('studentInfo').classList.remove('hidden');
+            
+            // Set default values
+            document.getElementById('topics_completed').value = '0';
+            document.getElementById('total_topics').value = '10';
+            document.getElementById('quiz_score').value = '0';
+            document.getElementById('assignment_score').value = '0';
+            document.getElementById('project_score').value = '0';
+            document.getElementById('status').value = 'Active';
+            document.getElementById('remarks').value = '';
 
-            modalTitle.textContent = 'Edit Student Progress';
+            modalTitle.textContent = 'Add Progress for ' + studentName;
             modal.classList.remove('hidden');
             modal.classList.add('flex');
 
             // Close student details modal if open
             closeStudentDetails();
+        }
+
+        function editProgress(studentData) {
+            const modal = document.getElementById('updateProgressModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const form = document.getElementById('progressForm');
+
+            // Fill form with existing data
+            document.getElementById('progress_id').value = studentData.progress_id || '0';
+            document.getElementById('modal_student_id').value = studentData.student_id;
+            document.getElementById('modal_skill_id').value = studentData.skill_id;
+            
+            // Set student selection
+            const studentSelect = document.getElementById('student_id_select');
+            studentSelect.value = studentData.student_id;
+            
+            // Update student info display
+            document.getElementById('selectedStudentName').textContent = studentData.student_name;
+            document.getElementById('selectedStudentCode').textContent = studentData.student_code;
+            document.getElementById('studentInfo').classList.remove('hidden');
+            
+            // Set progress values
+            document.getElementById('topics_completed').value = studentData.topics_completed || '0';
+            document.getElementById('total_topics').value = studentData.total_topics || '10';
+            document.getElementById('quiz_score').value = studentData.quiz_score || '0';
+            document.getElementById('assignment_score').value = studentData.assignment_score || '0';
+            document.getElementById('project_score').value = studentData.project_score || '0';
+            document.getElementById('status').value = studentData.progress_status || 'Active';
+            document.getElementById('remarks').value = studentData.remarks || '';
+
+            modalTitle.textContent = 'Edit Progress for ' + studentData.student_name;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            // Close student details modal if open
+            closeStudentDetails();
+        }
+
+        function updateStudentSelection() {
+            const studentSelect = document.getElementById('student_id_select');
+            const selectedOption = studentSelect.options[studentSelect.selectedIndex];
+            
+            if (selectedOption.value) {
+                document.getElementById('modal_student_id').value = selectedOption.value;
+                document.getElementById('selectedStudentName').textContent = selectedOption.getAttribute('data-name');
+                document.getElementById('selectedStudentCode').textContent = 'Code: ' + selectedOption.getAttribute('data-code');
+                document.getElementById('studentInfo').classList.remove('hidden');
+            } else {
+                document.getElementById('studentInfo').classList.add('hidden');
+            }
         }
 
         function closeUpdateProgressModal() {
@@ -1944,6 +2179,23 @@ if ($batch_filter > 0) {
             if (score >= 40) return 'from-yellow-500 to-amber-500';
             return 'from-red-500 to-rose-500';
         }
+
+        function showBulkProgressModal() {
+            alert('Bulk update feature would allow updating multiple students at once. This could be implemented as an enhancement.');
+        }
+
+        // Close modals when clicking outside
+        document.getElementById('studentDetailsModal').addEventListener('click', function(e) {
+            if (e.target === this) closeStudentDetails();
+        });
+
+        document.getElementById('updateProgressModal').addEventListener('click', function(e) {
+            if (e.target === this) closeUpdateProgressModal();
+        });
+
+        document.getElementById('updateReportModal').addEventListener('click', function(e) {
+            if (e.target === this) closeUpdateReportModal();
+        });
     </script>
 
 </body>

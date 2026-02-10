@@ -6,59 +6,52 @@ $success_message = '';
 $error_message = '';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $username = trim($_POST['username']);
-    $email = trim($_POST['email']);
-    $password = trim($_POST['password']);
+    // Sanitize input
     $name = trim($_POST['name']);
     $qualification = trim($_POST['qualification']);
-    $experience_years = intval($_POST['experience_years']);
+    $experience_years = (int) $_POST['experience_years'];
     $phone = trim($_POST['phone']);
+    $gender = trim($_POST['gender'] ?? '');
     $specialization = trim($_POST['specialization'] ?? '');
 
-    // Basic validation
-    if (empty($username) || empty($email) || empty($password) || empty($name)) {
-        $error_message = "Please fill in all required fields.";
-    } else {
-        // Check if username or email already exists
-        $check_sql = "SELECT id FROM users WHERE username = '$username' OR email = '$email'";
-        $check_result = mysqli_query($conn, $check_sql);
+    $username = trim($_POST['username']);
+    $email = trim($_POST['email']);
+    $password = trim($_POST['password']); // plain password
 
-        if (mysqli_num_rows($check_result) > 0) {
-            $error_message = "Username or email already exists.";
-        } else {
-            // Insert into users table
-            $user_sql = "INSERT INTO users (username, email, password, user_type_id, status, created_at) 
-                         VALUES ('$username', '$email', '$password', 2, 'active', NOW())";
+    // Hash password securely
+    $password_hash = password_hash($password, PASSWORD_DEFAULT);
 
-            if (mysqli_query($conn, $user_sql)) {
-                $user_id = mysqli_insert_id($conn);
-                $teacher_code = 'TCH-' . date('Ymd') . str_pad($user_id, 4, '0', STR_PAD_LEFT);
+    // Start transaction
+    $conn->begin_transaction();
 
-                // Insert into teachers table
-                $teacher_sql = "INSERT INTO teachers 
-                                (user_id, teacher_code, name, qualification, experience_years,  phone, status, created_at)
-                                VALUES (
-                                    '$user_id',
-                                    '$teacher_code',
-                                    '$name',
-                                    '$qualification',
-                                    '$experience_years',
-                                
-                                    '$phone',
-                                    'active',
-                                    NOW()
-                                )";
+    try {
+        // Insert into users table
+        $stmt_user = $conn->prepare("
+            INSERT INTO users (username, email, password, user_type_id, status, created_at)
+            VALUES (?, ?, ?, 2, 'active', NOW())
+        ");
+        $stmt_user->bind_param('sss', $username, $email, $password_hash);
+        $stmt_user->execute();
 
-                if (mysqli_query($conn, $teacher_sql)) {
-                    $success_message = "Teacher added successfully! Teacher Code: $teacher_code";
-                    $_POST = array(); // Clear form
-                } else {
-                    $error_message = "Error adding teacher details: " . mysqli_error($conn);
-                }
-            } else {
-                $error_message = "Error creating user: " . mysqli_error($conn);
-            }
-        }
+        $user_id = $conn->insert_id;
+        $teacher_code = 'TCH-' . date('Ymd') . str_pad($user_id, 4, '0', STR_PAD_LEFT);
+
+        // Insert into teachers table (updated with all columns from your table)
+        $stmt_teacher = $conn->prepare("
+            INSERT INTO teachers (user_id, teacher_code, name, gender, qualification, experience_years, phone, specialization, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW())
+        ");
+        $stmt_teacher->bind_param('issssiss', $user_id, $teacher_code, $name, $gender, $qualification, $experience_years, $phone, $specialization);
+        $stmt_teacher->execute();
+
+        // Commit transaction
+        $conn->commit();
+
+        $success_message = "Teacher added successfully! Teacher Code: $teacher_code";
+        $_POST = array(); // Clear form
+    } catch (Exception $e) {
+        $conn->rollback();
+        $error_message = "Error adding teacher: " . $e->getMessage();
     }
 }
 ?>
@@ -162,7 +155,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <?php include __DIR__ . '/../../includes/navbar.php'; ?>
 
     <div class="flex">
-        <!-- SIDEBAR - INCLUDED FROM EXTERNAL FILE -->
+        <!-- SIDEBAR -->
         <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
         <!-- MAIN CONTENT -->
@@ -194,7 +187,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         <div class="ml-3">
                             <h3 class="text-sm font-medium text-green-800">Success</h3>
                             <div class="mt-2 text-sm text-green-700">
-                                <p><?php echo $success_message; ?></p>
+                                <p><?php echo htmlspecialchars($success_message); ?></p>
                             </div>
                         </div>
                     </div>
@@ -210,7 +203,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         <div class="ml-3">
                             <h3 class="text-sm font-medium text-red-800">Error</h3>
                             <div class="mt-2 text-sm text-red-700">
-                                <p><?php echo $error_message; ?></p>
+                                <p><?php echo htmlspecialchars($error_message); ?></p>
                             </div>
                         </div>
                     </div>
@@ -242,6 +235,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                     oninput="updateAvatar()">
                             </div>
 
+                            <!-- Gender -->
+                            <div>
+                                <label class="form-label">Gender</label>
+                                <select name="gender" class="form-select">
+                                    <option value="">Select Gender</option>
+                                    <option value="male" <?php echo (isset($_POST['gender']) && $_POST['gender'] == 'male') ? 'selected' : ''; ?>>Male</option>
+                                    <option value="female" <?php echo (isset($_POST['gender']) && $_POST['gender'] == 'female') ? 'selected' : ''; ?>>Female</option>
+                                    <option value="other" <?php echo (isset($_POST['gender']) && $_POST['gender'] == 'other') ? 'selected' : ''; ?>>Other</option>
+                                </select>
+                            </div>
+
                             <!-- Qualification -->
                             <div>
                                 <label class="form-label required">Qualification</label>
@@ -270,9 +274,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                     name="experience_years"
                                     class="form-input"
                                     placeholder="Years of experience"
-                                    value="<?php echo isset($_POST['experience_years']) ? $_POST['experience_years'] : ''; ?>"
+                                    value="<?php echo isset($_POST['experience_years']) ? htmlspecialchars($_POST['experience_years']) : '0'; ?>"
                                     required
-                                    min="0">
+                                    min="0"
+                                    max="50">
                             </div>
 
                             <!-- Phone Number -->
@@ -324,10 +329,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                     value="<?php echo isset($_POST['password']) ? htmlspecialchars($_POST['password']) : ''; ?>"
                                     required
                                     id="passwordInput">
-                                <p class="text-xs text-gray-500 mt-1">
-                                    <i class="fas fa-exclamation-triangle text-yellow-500 mr-1"></i>
-                                    Password will be stored as plain text
-                                </p>
+                                <div class="flex items-center mt-1">
+                                    <button type="button" onclick="generatePassword()" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded mr-2">
+                                        <i class="fas fa-redo mr-1"></i> Generate
+                                    </button>
+                                    <p class="text-xs text-gray-500">
+                                        Password will be securely hashed
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -374,11 +383,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                     <strong>Important Notes:</strong>
                                 </p>
                                 <ul class="text-sm text-blue-700 mt-2 space-y-1">
-                                    <li>• Teacher will receive login credentials via email</li>
-                                    <li>• Email address must be active for communication</li>
-                                    <li>• Phone number will be used for emergency contact</li>
+                                    <li>• All fields marked with * are required</li>
                                     <li>• Teacher code will be generated automatically</li>
-                                    <li>• Specialization helps in assigning relevant courses</li>
+                                    <li>• Password will be securely hashed</li>
+                                    <li>• Email must be valid and unique</li>
                                 </ul>
                             </div>
                         </div>
@@ -413,40 +421,49 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
         }
 
+        function generatePassword() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+            let password = '';
+            for (let i = 0; i < 12; i++) {
+                password += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            document.getElementById('passwordInput').value = password;
+        }
+
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
             updateAvatar();
 
-            // Auto-suggest password
+            // Generate initial password if empty
             const passwordInput = document.getElementById('passwordInput');
             if (!passwordInput.value) {
-                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-                let password = '';
-                for (let i = 0; i < 8; i++) {
-                    password += chars.charAt(Math.floor(Math.random() * chars.length));
-                }
-                passwordInput.value = password;
+                generatePassword();
             }
 
-            // Generate a suggested username from name
+            // Generate username from name
             document.querySelector('input[name="name"]')?.addEventListener('blur', function() {
                 const name = this.value.trim();
                 const usernameInput = document.querySelector('input[name="username"]');
                 const emailInput = document.querySelector('input[name="email"]');
 
                 if (name && !usernameInput.value) {
-                    // Create username: firstname.lastname + random 2 digits
-                    const nameParts = name.toLowerCase().split(' ');
+                    // Create username from name
+                    const nameParts = name.toLowerCase().split(' ').filter(part => part.length > 0);
                     let suggestedUsername = '';
+
                     if (nameParts.length >= 2) {
-                        suggestedUsername = nameParts[0] + '.' + nameParts[nameParts.length - 1] + Math.floor(Math.random() * 100);
-                    } else {
-                        suggestedUsername = nameParts[0] + Math.floor(Math.random() * 1000);
+                        suggestedUsername = nameParts[0].charAt(0) + nameParts[nameParts.length - 1];
+                    } else if (nameParts.length === 1) {
+                        suggestedUsername = nameParts[0];
                     }
+
+                    // Add random 3 digits
+                    suggestedUsername += Math.floor(Math.random() * 1000);
                     usernameInput.value = suggestedUsername;
 
+                    // Suggest email if empty
                     if (!emailInput.value) {
-                        const suggestedEmail = suggestedUsername + '@eduskillpro.com';
+                        const suggestedEmail = suggestedUsername + '@academy.edu';
                         emailInput.value = suggestedEmail;
                     }
                 }

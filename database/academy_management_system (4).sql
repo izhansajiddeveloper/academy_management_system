@@ -75,7 +75,7 @@ INSERT INTO `activities` (`id`, `user_id`, `activity_type`, `title`, `descriptio
 (3, 1, 'batch_created', 'New Batch Created', 'Batch: Batch A for Web Development', 'calendar-plus', '#3b82f6', NULL, NULL, NULL, '2026-01-21 22:18:54'),
 (4, 1, 'student_enrolled', 'New Student Enrollment', 'ibad khan enrolled in Cyber Security', 'user-check', '#8b5cf6', NULL, NULL, NULL, '2026-01-21 21:18:54'),
 (5, 1, 'login', 'Admin Logged In', 'System administrator logged in', 'log-in', '#059669', NULL, NULL, NULL, '2026-01-22 05:18:54'),
-(6, 1, 'payment_received', 'Payment Received', 'Payment of ₹5,000 received from John Doe for Web Development course', 'credit-card', '#16a34a', NULL, NULL, NULL, '2026-01-22 03:18:54'),
+(6, 1, 'payment_received', 'Payment Received', 'Payment of Rs5,000 received from John Doe for Web Development course', 'credit-card', '#16a34a', NULL, NULL, NULL, '2026-01-22 03:18:54'),
 (7, 1, 'assignment_submitted', 'Assignment Submitted', 'Sarah submitted \"Web Development Project 1\"', 'file-text', '#9333ea', NULL, NULL, NULL, '2026-01-22 02:18:54'),
 (8, 1, 'course_created', 'New Course Created', 'Course: Data Science Fundamentals with Python', 'book-open', '#ea580c', NULL, NULL, NULL, '2026-01-22 01:18:54'),
 (9, 1, 'exam_scheduled', 'Exam Scheduled', 'Mid-term exam scheduled for Batch A (Web Development)', 'calendar', '#dc2626', NULL, NULL, NULL, '2026-01-22 00:18:54'),

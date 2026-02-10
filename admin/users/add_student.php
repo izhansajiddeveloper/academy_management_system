@@ -5,6 +5,10 @@ require_once __DIR__ . '/../../includes/functions.php';
 $success_message = '';
 $error_message = '';
 
+// Enable error reporting for debugging
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
 // Get current year
 $current_year = date('Y');
 
@@ -34,7 +38,7 @@ $web_dev_id = $web_dev ? $web_dev['id'] : 0;
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $username = trim($_POST['username']);
     $email    = trim($_POST['email']);
-    $password = trim($_POST['password']);
+    $password = trim($_POST['password']); // plain password
     $name     = trim($_POST['name']);
     $father_name = trim($_POST['father_name']);
     $gender   = trim($_POST['gender']);
@@ -54,97 +58,136 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $admission_date = isset($_POST['admission_date']) ? $_POST['admission_date'] : date('Y-m-d');
 
     // Basic validation
-    if (empty($username) || empty($email) || empty($password) || empty($name)) {
+    if (empty($username) || empty($email) || empty($password) || empty($name) || empty($phone)) {
         $error_message = "Please fill in all required fields.";
     } else {
-        // Check if username or email already exists
-        $check_sql = "SELECT id FROM users WHERE username = '$username' OR email = '$email'";
-        $check_result = mysqli_query($conn, $check_sql);
+        // Start transaction
+        mysqli_begin_transaction($conn);
 
-        if (mysqli_num_rows($check_result) > 0) {
-            $error_message = "Username or email already exists.";
-        } else {
-            // Insert into users table including username
+        try {
+            // Check if username or email already exists
+            $check_sql = "SELECT id FROM users WHERE username = '$username' OR email = '$email'";
+            $check_result = mysqli_query($conn, $check_sql);
+
+            if (mysqli_num_rows($check_result) > 0) {
+                throw new Exception("Username or email already exists.");
+            }
+
+            // Insert into users table - using plain password (no hashing)
             $user_sql = "INSERT INTO users (username, email, password, user_type_id, status, created_at) 
                          VALUES ('$username', '$email', '$password', 3, 'active', NOW())";
 
-            if (mysqli_query($conn, $user_sql)) {
-                $user_id = mysqli_insert_id($conn);
-                $student_code = 'STD-' . date('Ymd') . str_pad($user_id, 4, '0', STR_PAD_LEFT);
+            if (!mysqli_query($conn, $user_sql)) {
+                throw new Exception("Error creating user: " . mysqli_error($conn));
+            }
 
-                // Insert into students table
+            $user_id = mysqli_insert_id($conn);
+            $student_code = 'STD-' . date('Ymd') . str_pad($user_id, 4, '0', STR_PAD_LEFT);
+
+            // Debug: Check if user_id is valid
+            if (!$user_id || $user_id < 1) {
+                throw new Exception("Invalid user ID generated: $user_id");
+            }
+
+            // Insert into students table - SIMPLIFIED without problematic columns
+            // Check if 'module' column exists in students table
+            $check_columns = mysqli_query($conn, "SHOW COLUMNS FROM students LIKE 'module'");
+            $has_module_column = mysqli_num_rows($check_columns) > 0;
+
+            // Build SQL based on actual table structure
+            if ($has_module_column) {
+                $student_sql = "INSERT INTO students
+                                (user_id, student_code, name, father_name, gender, dob, phone, address, module, status, created_at)
+                                VALUES (
+                                    '$user_id',
+                                    '$student_code',
+                                    '" . mysqli_real_escape_string($conn, $name) . "',
+                                    '" . mysqli_real_escape_string($conn, $father_name) . "',
+                                    '$gender',
+                                    '$dob',
+                                    '$phone',
+                                    '" . mysqli_real_escape_string($conn, $address) . "',
+                                    'regular',
+                                    'active',
+                                    NOW()
+                                )";
+            } else {
                 $student_sql = "INSERT INTO students
                                 (user_id, student_code, name, father_name, gender, dob, phone, address, status, created_at)
                                 VALUES (
                                     '$user_id',
                                     '$student_code',
-                                    '$name',
-                                    '$father_name',
+                                    '" . mysqli_real_escape_string($conn, $name) . "',
+                                    '" . mysqli_real_escape_string($conn, $father_name) . "',
                                     '$gender',
                                     '$dob',
                                     '$phone',
-                                    '$address',
+                                    '" . mysqli_real_escape_string($conn, $address) . "',
                                     'active',
                                     NOW()
                                 )";
-
-                if (mysqli_query($conn, $student_sql)) {
-                    $student_id = mysqli_insert_id($conn);
-                    $enrollment_count = 0;
-
-                    // If first enrollment details are provided, create enrollment
-                    if ($skill_id_1 > 0 && $session_id > 0 && $batch_id_1 > 0) {
-                        $enrollment_sql_1 = "INSERT INTO student_enrollments 
-                                            (student_id, skill_id, session_id, batch_id, admission_date, status, created_at)
-                                            VALUES (
-                                                '$student_id',
-                                                '$skill_id_1',
-                                                '$session_id',
-                                                '$batch_id_1',
-                                                '$admission_date',
-                                                'active',
-                                                NOW()
-                                            )";
-
-                        if (mysqli_query($conn, $enrollment_sql_1)) {
-                            $enrollment_count++;
-                        }
-                    }
-
-                    // If second enrollment details are provided, create enrollment
-                    if ($skill_id_2 > 0 && $session_id > 0 && $batch_id_2 > 0) {
-                        $enrollment_sql_2 = "INSERT INTO student_enrollments 
-                                            (student_id, skill_id, session_id, batch_id, admission_date, status, created_at)
-                                            VALUES (
-                                                '$student_id',
-                                                '$skill_id_2',
-                                                '$session_id',
-                                                '$batch_id_2',
-                                                '$admission_date',
-                                                'active',
-                                                NOW()
-                                            )";
-
-                        if (mysqli_query($conn, $enrollment_sql_2)) {
-                            $enrollment_count++;
-                        }
-                    }
-
-                    if ($enrollment_count > 0) {
-                        $success_message = "Student added and enrolled in $enrollment_count skill(s)! Student Code: $student_code";
-                    } else {
-                        $success_message = "Student added successfully! Student Code: $student_code";
-                    }
-
-                    // Redirect to students.php after successful save
-                    header("Location: students.php?success=" . urlencode("Student added successfully! Student Code: $student_code"));
-                    exit();
-                } else {
-                    $error_message = "Error adding student details: " . mysqli_error($conn);
-                }
-            } else {
-                $error_message = "Error creating user: " . mysqli_error($conn);
             }
+
+            if (!mysqli_query($conn, $student_sql)) {
+                throw new Exception("Error adding student details: " . mysqli_error($conn));
+            }
+
+            $student_id = mysqli_insert_id($conn);
+            $enrollment_count = 0;
+
+            // If first enrollment details are provided, create enrollment
+            if ($skill_id_1 > 0 && $session_id > 0 && $batch_id_1 > 0) {
+                $enrollment_sql_1 = "INSERT INTO student_enrollments 
+                                    (student_id, skill_id, session_id, batch_id, admission_date, status, created_at)
+                                    VALUES (
+                                        '$student_id',
+                                        '$skill_id_1',
+                                        '$session_id',
+                                        '$batch_id_1',
+                                        '$admission_date',
+                                        'active',
+                                        NOW()
+                                    )";
+
+                if (mysqli_query($conn, $enrollment_sql_1)) {
+                    $enrollment_count++;
+                }
+            }
+
+            // If second enrollment details are provided, create enrollment
+            if ($skill_id_2 > 0 && $session_id > 0 && $batch_id_2 > 0) {
+                $enrollment_sql_2 = "INSERT INTO student_enrollments 
+                                    (student_id, skill_id, session_id, batch_id, admission_date, status, created_at)
+                                    VALUES (
+                                        '$student_id',
+                                        '$skill_id_2',
+                                        '$session_id',
+                                        '$batch_id_2',
+                                        '$admission_date',
+                                        'active',
+                                        NOW()
+                                    )";
+
+                if (mysqli_query($conn, $enrollment_sql_2)) {
+                    $enrollment_count++;
+                }
+            }
+
+            // Commit transaction
+            mysqli_commit($conn);
+
+            if ($enrollment_count > 0) {
+                $success_message = "Student added and enrolled in $enrollment_count skill(s)! Student Code: $student_code";
+            } else {
+                $success_message = "Student added successfully! Student Code: $student_code";
+            }
+
+            // Clear form
+            $_POST = array();
+        } catch (Exception $e) {
+            // Rollback transaction on error
+            mysqli_rollback($conn);
+            $error_message = $e->getMessage();
         }
     }
 }
@@ -334,7 +377,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
             <!-- Student Form -->
             <div class="form-container">
-                <form method="POST">
+                <form method="POST" id="studentForm">
                     <!-- Student Details Section -->
                     <div class="mb-8">
                         <h3 class="section-title">Student Details</h3>
@@ -369,7 +412,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                     class="form-input"
                                     placeholder="Enter password"
                                     value="<?php echo isset($_POST['password']) ? htmlspecialchars($_POST['password']) : ''; ?>"
-                                    required>
+                                    required
+                                    id="passwordInput">
+                                <div class="flex items-center mt-1">
+                                    <button type="button" onclick="generatePassword()" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded mr-2">
+                                        <i class="fas fa-redo mr-1"></i> Generate
+                                    </button>
+                                    <p class="text-xs text-gray-500">
+                                        Password will be stored as plain text
+                                    </p>
+                                </div>
                             </div>
 
                             <!-- Full Name -->
@@ -410,7 +462,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 <input type="date"
                                     name="dob"
                                     class="form-input"
-                                    value="<?php echo isset($_POST['dob']) ? $_POST['dob'] : ''; ?>">
+                                    value="<?php echo isset($_POST['dob']) ? $_POST['dob'] : ''; ?>"
+                                    max="<?php echo date('Y-m-d'); ?>">
                             </div>
 
                             <!-- Phone Number -->
@@ -577,6 +630,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 <span class="text-sm text-gray-600">
                                     Status: Active
                                 </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Important Notes -->
+                    <div class="mb-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-exclamation-triangle text-yellow-400 mt-0.5"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-yellow-700">
+                                    <strong>Important Notes:</strong>
+                                </p>
+                                <ul class="text-sm text-yellow-700 mt-2 space-y-1">
+                                    <li>• All fields marked with * are required</li>
+                                    <li>• Password is stored as plain text (for demo purposes)</li>
+                                    <li>• Student code will be generated automatically</li>
+                                    <li>• Email must be valid and unique</li>
+                                    <li>• Phone number is required for communication</li>
+                                </ul>
                             </div>
                         </div>
                     </div>
@@ -758,15 +832,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     usernameInput.value = suggestedUsername;
 
                     if (!emailInput.value) {
-                        const suggestedEmail = suggestedUsername + '@eduskillpro.com';
+                        const suggestedEmail = suggestedUsername + '@academy.edu';
                         emailInput.value = suggestedEmail;
                     }
                 }
             });
 
             // Auto-suggest password
-            const passwordInput = document.querySelector('input[name="password"]');
-            if (!passwordInput.value) {
+            const passwordInput = document.getElementById('passwordInput');
+
+            function generatePassword() {
                 const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
                 let password = '';
                 for (let i = 0; i < 8; i++) {
@@ -775,10 +850,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 passwordInput.value = password;
             }
 
+            if (!passwordInput.value) {
+                generatePassword();
+            }
+
             // Set admission date to today if not set
             const admissionDateInput = document.querySelector('input[name="admission_date"]');
             if (!admissionDateInput.value) {
                 admissionDateInput.value = '<?php echo date("Y-m-d"); ?>';
+            }
+
+            // Set max date for DOB to today
+            const dobInput = document.querySelector('input[name="dob"]');
+            if (dobInput) {
+                dobInput.max = '<?php echo date("Y-m-d"); ?>';
             }
 
             // Real-time validation
@@ -796,6 +881,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     this.classList.remove('border-red-300');
                 });
             });
+
+            // Expose function to global scope for button
+            window.generatePassword = generatePassword;
         });
     </script>
 

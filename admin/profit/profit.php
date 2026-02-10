@@ -217,54 +217,8 @@ $recent_months_result = mysqli_query($conn, $recent_months_query);
 
     <div class="flex">
         <!-- SIDEBAR -->
-        <aside class="w-64 sidebar h-screen sticky top-0">
-            <div class="p-4 border-b border-gray-700">
-                <h2 class="text-xl font-bold text-white">🎓 EduSkill Pro</h2>
-                <p class="text-xs text-gray-300 mt-1">Admin Panel</p>
-            </div>
-
-            <nav class="p-3 space-y-1">
-                <a href="../dashboard.php" class="sidebar-link">
-                    <i class="fas fa-chart-line"></i> Dashboard
-                </a>
-
-                <div class="mt-4">
-                    <p class="text-xs text-gray-400 px-3 mb-2 uppercase tracking-wider">Financial</p>
-                    <a href="../fees/fee_structures.php" class="sidebar-link">
-                        <i class="fas fa-calculator"></i> Fee Structures
-                    </a>
-                    <a href="../fees/fee_collection.php" class="sidebar-link">
-                        <i class="fas fa-cash-register"></i> Fee Collection
-                    </a>
-                    <a href="../fees/fee_history.php" class="sidebar-link">
-                        <i class="fas fa-history"></i> Fee History
-                    </a>
-                    <a href="../expenses/expenses.php" class="sidebar-link">
-                        <i class="fas fa-wallet"></i> Expenses
-                    </a>
-                    <a href="../donations/donations.php" class="sidebar-link">
-                        <i class="fas fa-hand-holding-usd"></i> Donations
-                    </a>
-                    <a href="profit.php" class="sidebar-link active">
-                        <i class="fas fa-chart-line"></i> Profit Management
-                    </a>
-                </div>
-
-                <div class="mt-4">
-                    <p class="text-xs text-gray-400 px-3 mb-2 uppercase tracking-wider">Student Management</p>
-                    <a href="../enrollments/enrollment_list.php" class="sidebar-link">
-                        <i class="fas fa-user-check"></i> Enrollments
-                    </a>
-                </div>
-
-                <div class="mt-4">
-                    <p class="text-xs text-gray-400 px-3 mb-2 uppercase tracking-wider">Operations</p>
-                    <a href="../reports/student_report.php" class="sidebar-link">
-                        <i class="fas fa-file-alt"></i> Reports
-                    </a>
-                </div>
-            </nav>
-        </aside>
+       
+        <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
         <!-- MAIN CONTENT -->
         <main class="flex-1 p-4">

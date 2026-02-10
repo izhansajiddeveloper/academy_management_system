@@ -57,20 +57,21 @@ $assigned_batches = $stmt_batches->get_result();
 $syllabus_data = [];
 $batch_skill_id = 0;
 $batch_skill_name = '';
+$batch_info = null;
 
 if ($batch_filter > 0) {
     // Get batch details
-    $batch_query = "SELECT b.*, s.skill_name FROM batches b 
+    $batch_query = "SELECT b.*, s.skill_name, s.id as skill_id FROM batches b 
                    JOIN skills s ON b.skill_id = s.id 
                    WHERE b.id = ?";
     $stmt_batch = $conn->prepare($batch_query);
     $stmt_batch->bind_param("i", $batch_filter);
     $stmt_batch->execute();
-    $batch_result = $stmt_batch->get_result()->fetch_assoc();
+    $batch_info = $stmt_batch->get_result()->fetch_assoc();
 
-    if ($batch_result) {
-        $batch_skill_id = $batch_result['skill_id'];
-        $batch_skill_name = $batch_result['skill_name'];
+    if ($batch_info) {
+        $batch_skill_id = $batch_info['skill_id'];
+        $batch_skill_name = $batch_info['skill_name'];
     }
 
     // Get syllabus items
@@ -118,40 +119,12 @@ if (isset($_SESSION['error_message'])) {
     unset($_SESSION['error_message']);
 }
 
-// Helper function to get MIME type
-function getMimeType($file_path)
-{
-    if (function_exists('mime_content_type')) {
-        return mime_content_type($file_path);
-    } else if (function_exists('finfo_open')) {
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $mime_type = finfo_file($finfo, $file_path);
-        finfo_close($finfo);
-        return $mime_type;
-    } else {
-        // Fallback method using file extension
-        $ext = strtolower(pathinfo($file_path, PATHINFO_EXTENSION));
-        $mime_types = [
-            'pdf' => 'application/pdf',
-            'doc' => 'application/msword',
-            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'ppt' => 'application/vnd.ms-powerpoint',
-            'pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-            'mp4' => 'video/mp4',
-            'avi' => 'video/x-msvideo',
-            'mkv' => 'video/x-matroska',
-            'mov' => 'video/quicktime'
-        ];
-        return $mime_types[$ext] ?? 'application/octet-stream';
-    }
-}
-
 // Handle syllabus upload/update
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     $syllabus_id = isset($_POST['syllabus_id']) ? intval($_POST['syllabus_id']) : 0;
-    $batch_id = isset($_POST['batch_id']) ? intval($_POST['batch_id']) : 0;
-    $skill_id = isset($_POST['skill_id']) ? intval($_POST['skill_id']) : 0;
+    $batch_id = intval($_POST['batch_id'] ?? $_GET['batch_id'] ?? 0);
+    $skill_id = intval($_POST['skill_id'] ?? $_GET['skill_id'] ?? 0);
 
     if ($batch_id === 0 || $skill_id === 0) {
         $error_message = "Invalid batch or skill selection.";
@@ -202,24 +175,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'PDF' => ['pdf'],
                             'DOC' => ['doc', 'docx'],
                             'PPT' => ['ppt', 'pptx'],
-                            'Video' => ['mp4', 'avi', 'mkv', 'mov']
+                            'Video' => ['mp4', 'avi', 'mkv', 'mov', 'wmv']
                         ];
 
                         $file_extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
 
-                        // Validate based on resource type
-                        if (!in_array($file_extension, $allowed_extensions[$resource_type] ?? [])) {
+                        if (!isset($allowed_extensions[$resource_type]) || !in_array($file_extension, $allowed_extensions[$resource_type])) {
                             $allowed_list = implode(', ', $allowed_extensions[$resource_type] ?? []);
                             throw new Exception("Invalid file type for $resource_type. Allowed extensions: $allowed_list");
                         }
 
                         // File size limit (10MB)
-                        $max_size = 10 * 1024 * 1024; // 10MB
+                        $max_size = 10 * 1024 * 1024;
                         if ($file['size'] > $max_size) {
                             throw new Exception("File size exceeds 10MB limit.");
                         }
 
-                        // Create upload directory if not exists
+                        // Create upload directory
                         $upload_dir = "../uploads/syllabus/" . date('Y') . '/' . date('m') . '/';
                         if (!is_dir($upload_dir)) {
                             mkdir($upload_dir, 0777, true);
@@ -314,18 +286,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             changed_by,
                             change_type,
                             change_description
-                        ) VALUES (?, ?, ?, ?, ?, 'Updated', ?)
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?)
                         ";
 
                         $stmt_history = $conn->prepare($history_query);
                         $change_desc = "Topic updated: {$topic_title}";
+                        $change_type = "Updated";
                         $stmt_history->bind_param(
-                            "iiiiss",
+                            "iiiisss",
                             $syllabus_id,
                             $skill_id,
                             $batch_id,
                             $topic_title,
                             $teacher_id,
+                            $change_type,
                             $change_desc
                         );
                         $stmt_history->execute();
@@ -387,18 +361,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             changed_by,
                             change_type,
                             change_description
-                        ) VALUES (?, ?, ?, ?, ?, 'Created', ?)
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?)
                         ";
 
                         $stmt_history = $conn->prepare($history_query);
                         $change_desc = "New topic created: {$topic_title}";
+                        $change_type = "Created";
                         $stmt_history->bind_param(
-                            "iiiiss",
+                            "iiiisss",
                             $syllabus_id,
                             $skill_id,
                             $batch_id,
                             $topic_title,
                             $teacher_id,
+                            $change_type,
                             $change_desc
                         );
                         $stmt_history->execute();
@@ -406,90 +382,84 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 $success_message = "Syllabus " . ($action === 'edit' ? 'updated' : 'added') . " successfully!";
-            } elseif ($action === 'delete' && $syllabus_id > 0) {
-                // Soft delete by updating status to Archived
-                $delete_query = "UPDATE skill_syllabus SET status = 'Archived' WHERE id = ? AND created_by = ?";
-                $stmt_delete = $conn->prepare($delete_query);
-                $stmt_delete->bind_param("ii", $syllabus_id, $teacher_id);
+            } elseif ($action === 'archive' && $syllabus_id > 0) {
+                // Archive syllabus
+                $archive_query = "UPDATE skill_syllabus SET status = 'Archived' WHERE id = ? AND created_by = ?";
+                $stmt_archive = $conn->prepare($archive_query);
+                $stmt_archive->bind_param("ii", $syllabus_id, $teacher_id);
 
-                if ($stmt_delete->execute()) {
-                    // Get syllabus info for history
+                if ($stmt_archive->execute()) {
+                    // Get syllabus info
                     $syllabus_info = $conn->query("SELECT topic_title FROM skill_syllabus WHERE id = $syllabus_id")->fetch_assoc();
-
-                    // Prepare topic title safely
-                    $topic_title = isset($syllabus_info['topic_title']) ? $syllabus_info['topic_title'] : 'Unknown';
+                    $topic_title = $syllabus_info['topic_title'] ?? 'Unknown';
 
                     // Add to history
                     $history_query = "
-INSERT INTO syllabus_history (
-    syllabus_id,
-    skill_id,
-    batch_id,
-    topic_title,
-    changed_by,
-    change_type,
-    change_description
-) VALUES (?, ?, ?, ?, ?, 'Archived', ?)
-";
+                    INSERT INTO syllabus_history (
+                        syllabus_id,
+                        skill_id,
+                        batch_id,
+                        topic_title,
+                        changed_by,
+                        change_type,
+                        change_description
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ";
 
                     $stmt_history = $conn->prepare($history_query);
-
                     $change_desc = "Topic archived: " . $topic_title;
-
+                    $change_type = "Archived";
                     $stmt_history->bind_param(
-                        "iiiiss",
+                        "iiiisss",
                         $syllabus_id,
                         $skill_id,
                         $batch_id,
                         $topic_title,
                         $teacher_id,
+                        $change_type,
                         $change_desc
                     );
-
                     $stmt_history->execute();
 
                     $success_message = "Syllabus topic archived successfully!";
                 }
             } elseif ($action === 'restore' && $syllabus_id > 0) {
-                // Restore from Archived
+                // Restore syllabus
                 $restore_query = "UPDATE skill_syllabus SET status = 'Active' WHERE id = ? AND created_by = ?";
                 $stmt_restore = $conn->prepare($restore_query);
                 $stmt_restore->bind_param("ii", $syllabus_id, $teacher_id);
 
                 if ($stmt_restore->execute()) {
-                    // Get syllabus info for history
+                    // Get syllabus info
                     $syllabus_info = $conn->query("SELECT topic_title FROM skill_syllabus WHERE id = $syllabus_id")->fetch_assoc();
+                    $topic_title = $syllabus_info['topic_title'] ?? 'Unknown';
 
                     // Add to history
                     $history_query = "
-INSERT INTO syllabus_history (
-    syllabus_id,
-    skill_id,
-    batch_id,
-    topic_title,
-    changed_by,
-    change_type,
-    change_description
-) VALUES (?, ?, ?, ?, ?, 'Restored', ?)
-";
+                    INSERT INTO syllabus_history (
+                        syllabus_id,
+                        skill_id,
+                        batch_id,
+                        topic_title,
+                        changed_by,
+                        change_type,
+                        change_description
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ";
 
                     $stmt_history = $conn->prepare($history_query);
-
-                    // Store topic title safely in a variable
-                    $topic_title = isset($syllabus_info['topic_title']) ? $syllabus_info['topic_title'] : 'Unknown';
-
                     $change_desc = "Topic restored: " . $topic_title;
-
+                    $change_type = "Restored";
                     $stmt_history->bind_param(
-                        "iiiiss",
+                        "iiiisss",
                         $syllabus_id,
                         $skill_id,
                         $batch_id,
                         $topic_title,
                         $teacher_id,
+                        $change_type,
                         $change_desc
                     );
-
                     $stmt_history->execute();
 
                     $success_message = "Syllabus topic restored successfully!";
@@ -499,7 +469,7 @@ INSERT INTO syllabus_history (
                 if (isset($_POST['order']) && is_array($_POST['order'])) {
                     foreach ($_POST['order'] as $position => $syllabus_id) {
                         $syllabus_id = intval($syllabus_id);
-                        $position = intval($position) + 1; // Start from 1
+                        $position = intval($position) + 1;
 
                         $update_order_query = "UPDATE skill_syllabus SET topic_order = ? WHERE id = ? AND created_by = ?";
                         $stmt_order = $conn->prepare($update_order_query);
@@ -541,10 +511,8 @@ function formatFileSize($bytes)
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <title>Syllabus Management | Teacher Panel</title>
     <meta charset="UTF-8">
@@ -727,11 +695,14 @@ function formatFileSize($bytes)
         .drag-handle:hover {
             color: var(--primary);
         }
+
+        .progress-ring {
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
     </style>
 </head>
-
 <body class="min-h-screen">
-
     <?php include __DIR__ . '/../includes/navbar.php'; ?>
 
     <div class="flex min-h-screen">
@@ -856,7 +827,7 @@ function formatFileSize($bytes)
 
                     <div class="lg:col-span-1 flex items-end gap-3">
                         <button type="submit"
-                            class="w-full btn-primary px-6 py-3.5 rounded-xl font-bold text-lg flex items-center justify-center gap-3">
+                            class="w-full btn-primary px-6 py-1.5 rounded-xl font-bold text-base flex items-center justify-center gap-3">
                             <i class="fas fa-search"></i>
                             Load Syllabus
                         </button>
@@ -875,14 +846,14 @@ function formatFileSize($bytes)
                     <div class="flex justify-between items-center mb-6">
                         <div>
                             <h2 class="text-2xl font-bold text-gray-800">
-                                <?php echo htmlspecialchars($batch_result['batch_name']); ?>
+                                <?php echo htmlspecialchars($batch_info['batch_name']); ?>
                             </h2>
                             <p class="text-gray-600 mt-2">
                                 <i class="fas fa-book mr-2"></i>
                                 Skill: <?php echo htmlspecialchars($batch_skill_name); ?>
                                 |
                                 <i class="fas fa-calendar ml-4 mr-2"></i>
-                                Session: <?php echo htmlspecialchars($batch_result['session_name'] ?? 'N/A'); ?>
+                                Session: <?php echo htmlspecialchars($batch_info['session_name'] ?? 'N/A'); ?>
                             </p>
                         </div>
                         <div class="flex gap-4">
@@ -891,7 +862,6 @@ function formatFileSize($bytes)
                                 <i class="fas fa-plus"></i>
                                 Add Topic
                             </button>
-
                         </div>
                     </div>
 
@@ -899,25 +869,24 @@ function formatFileSize($bytes)
                     <div class="flex space-x-1 mb-6 border-b">
                         <button id="tab-active"
                             class="px-6 py-3 rounded-t-lg font-medium transition-all duration-300 <?php echo $status_filter === 'Active' || $status_filter === 'all' ? 'tab-active' : 'tab-inactive'; ?>"
-                            onclick="changeTab('active')">
+                            onclick="changeTab('Active')">
                             <i class="fas fa-play-circle mr-2"></i>
                             Active Topics
                         </button>
                         <button id="tab-draft"
                             class="px-6 py-3 rounded-t-lg font-medium transition-all duration-300 <?php echo $status_filter === 'Draft' ? 'tab-active' : 'tab-inactive'; ?>"
-                            onclick="changeTab('draft')">
+                            onclick="changeTab('Draft')">
                             <i class="fas fa-edit mr-2"></i>
                             Drafts
                         </button>
                         <button id="tab-archived"
                             class="px-6 py-3 rounded-t-lg font-medium transition-all duration-300 <?php echo $status_filter === 'Archived' ? 'tab-active' : 'tab-inactive'; ?>"
-                            onclick="changeTab('archived')">
+                            onclick="changeTab('Archived')">
                             <i class="fas fa-archive mr-2"></i>
                             Archived
                         </button>
-                        <button id="tab-timeline"
-                            class="px-6 py-3 rounded-t-lg font-medium transition-all duration-300 tab-inactive"
-                            onclick="showTimeline()">
+                        <button onclick="showTimeline()"
+                            class="px-6 py-3 rounded-t-lg font-medium transition-all duration-300 tab-inactive">
                             <i class="fas fa-history mr-2"></i>
                             Timeline
                         </button>
@@ -1084,7 +1053,7 @@ function formatFileSize($bytes)
 
                             <!-- Summary -->
                             <div class="mt-6 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg">
-                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                                     <div class="text-center">
                                         <div class="text-2xl font-bold text-gray-800"><?php echo $syllabus_data->num_rows; ?></div>
                                         <div class="text-sm text-gray-600">Total Topics</div>
@@ -1105,6 +1074,12 @@ function formatFileSize($bytes)
                                             ?>
                                         </div>
                                         <div class="text-sm text-gray-600">Active Topics</div>
+                                    </div>
+                                    <div class="text-center">
+                                        <div class="text-2xl font-bold text-blue-600">
+                                            <?php echo $active_count > 0 ? round(($active_count / $syllabus_data->num_rows) * 100) : 0; ?>%
+                                        </div>
+                                        <div class="text-sm text-gray-600">Active Rate</div>
                                     </div>
                                 </div>
                             </div>
@@ -1243,7 +1218,7 @@ function formatFileSize($bytes)
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Upload File *</label>
                             <input type="file" name="syllabus_file" id="syllabus_file"
                                 class="w-full form-input px-4 py-3 rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary-dark"
-                                accept=".pdf,.doc,.docx,.ppt,.pptx,.mp4,.avi,.mkv">
+                                accept=".pdf,.doc,.docx,.ppt,.pptx,.mp4,.avi,.mkv,.mov,.wmv">
                             <p class="text-sm text-gray-500 mt-2" id="fileHelp">
                                 Upload PDF, DOC, PPT, or Video files (Max 10MB)
                             </p>
@@ -1312,7 +1287,7 @@ function formatFileSize($bytes)
 
     <!-- Timeline Modal -->
     <div id="timelineModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
-        <div class="glass-card max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="glasscard max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div class="p-6">
                 <div class="flex justify-between items-center mb-8">
                     <h3 class="text-2xl font-bold text-gray-800">Syllabus History Timeline</h3>
@@ -1356,23 +1331,10 @@ function formatFileSize($bytes)
         });
 
         // Tab Functions
-        function changeTab(tab) {
-            const tabs = ['active', 'draft', 'archived'];
-            tabs.forEach(t => {
-                const btn = document.getElementById(`tab-${t}`);
-                const url = new URL(window.location);
-                url.searchParams.set('status', t === 'active' ? 'Active' : t.charAt(0).toUpperCase() + t.slice(1));
-                if (btn) {
-                    if (t === tab) {
-                        btn.classList.remove('tab-inactive');
-                        btn.classList.add('tab-active');
-                        window.location.href = url.toString();
-                    } else {
-                        btn.classList.remove('tab-active');
-                        btn.classList.add('tab-inactive');
-                    }
-                }
-            });
+        function changeTab(status) {
+            const url = new URL(window.location);
+            url.searchParams.set('status', status);
+            window.location.href = url.toString();
         }
 
         // Save order function
@@ -1417,7 +1379,7 @@ function formatFileSize($bytes)
             document.getElementById('formAction').value = 'add';
             document.getElementById('syllabus_id').value = '0';
             document.getElementById('modalTitle').textContent = 'Add Syllabus Topic';
-            document.getElementById('topic_order').value = <?php echo $syllabus_data->num_rows + 1; ?>;
+            document.getElementById('topic_order').value = <?php echo ($syllabus_data->num_rows ?? 0) + 1; ?>;
             document.getElementById('status').value = 'Active';
 
             // Reset resource fields
@@ -1496,7 +1458,7 @@ function formatFileSize($bytes)
                         fileInput.setAttribute('data-help', 'Upload PowerPoint files (Max 10MB)');
                         break;
                     case 'Video':
-                        fileInput.accept = '.mp4,.avi,.mkv,.mov';
+                        fileInput.accept = '.mp4,.avi,.mkv,.mov,.wmv';
                         fileInput.setAttribute('data-help', 'Upload video files (Max 10MB)');
                         break;
                 }
@@ -1617,7 +1579,7 @@ function formatFileSize($bytes)
                     } else {
                         let html = '';
                         data.forEach(record => {
-                            const date = new Date(record.created_at).toLocaleDateString('en-US', {
+                            const date = new Date(record.changed_at).toLocaleDateString('en-US', {
                                 year: 'numeric',
                                 month: 'short',
                                 day: 'numeric',
@@ -1626,7 +1588,7 @@ function formatFileSize($bytes)
                             });
 
                             let icon = 'fa-edit';
-                            let color = 'text-primary';
+                            let color = 'text-blue-500';
 
                             switch (record.change_type) {
                                 case 'Created':
@@ -1687,7 +1649,7 @@ function formatFileSize($bytes)
 
         // Action Functions
         function archiveSyllabus(id, title) {
-            if (confirm(`Are you sure you want to archive "${title}"?`)) {
+            if (confirm(`Are you sure you want to archive "${title}"? Students will no longer see this topic.`)) {
                 const form = document.createElement('form');
                 form.method = 'POST';
                 form.action = '';
@@ -1695,7 +1657,7 @@ function formatFileSize($bytes)
                 const actionInput = document.createElement('input');
                 actionInput.type = 'hidden';
                 actionInput.name = 'action';
-                actionInput.value = 'delete';
+                actionInput.value = 'archive';
                 form.appendChild(actionInput);
 
                 const idInput = document.createElement('input');
@@ -1722,7 +1684,7 @@ function formatFileSize($bytes)
         }
 
         function restoreSyllabus(id, title) {
-            if (confirm(`Are you sure you want to restore "${title}"?`)) {
+            if (confirm(`Are you sure you want to restore "${title}"? Students will be able to see this topic again.`)) {
                 const form = document.createElement('form');
                 form.method = 'POST';
                 form.action = '';
@@ -1758,16 +1720,9 @@ function formatFileSize($bytes)
 
         function deleteSyllabus(id, title) {
             if (confirm(`Are you sure you want to permanently delete "${title}"? This action cannot be undone.`)) {
-                // For permanent deletion, we'll need a separate endpoint
                 window.location.href = `delete_syllabus.php?id=${id}&batch_id=<?php echo $batch_filter; ?>&confirm=1`;
             }
         }
-
-        function showBatchStats() {
-            alert('Statistics feature coming soon!');
-        }
     </script>
-
 </body>
-
 </html>

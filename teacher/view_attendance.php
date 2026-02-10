@@ -497,35 +497,11 @@ if ($total_records > 0) {
                                 <?php while ($record = $attendance_records->fetch_assoc()): ?>
                                     <tr class="hover:bg-gray-50">
                                         <!-- In the table actions cell -->
-                                        <td class="py-3 px-4">
-                                            <div class="flex gap-2">
-                                                <button onclick="viewAttendanceDetails(<?php echo $record['id']; ?>)"
-                                                    class="text-blue-600 hover:text-blue-800 text-sm"
-                                                    title="View Details">
-                                                    <i class="fas fa-eye"></i>
-                                                </button>
-                                                <?php if ($record['marked_by'] == $teacher_id): ?>
-                                                    <!-- Updated Edit Button -->
-                                                    <a href="attendance.php?edit=<?php echo $record['id']; ?>&batch_id=<?php echo $record['batch_id']; ?>&date=<?php echo $record['attendance_date']; ?>"
-                                                        class="text-green-600 hover:text-green-800 text-sm"
-                                                        title="Edit">
-                                                        <i class="fas fa-edit"></i>
-                                                    </a>
-                                                    <button onclick="deleteAttendance(<?php echo $record['id']; ?>)"
-                                                        class="text-red-600 hover:text-red-800 text-sm"
-                                                        title="Delete">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
-                                                <?php endif; ?>
-                                            </div>
-                                        </td>
-                                        <div class="font-medium text-gray-900">
+
+                                        <td class="font-medium text-gray-900 p-2">
                                             <?php echo date('M j, Y', strtotime($record['attendance_date'])); ?>
-                                        </div>
-                                        <div class="text-xs text-gray-500">
-                                            <?php echo date('D', strtotime($record['attendance_date'])); ?>
-                                        </div>
                                         </td>
+
                                         <td class="py-3 px-4">
                                             <div class="font-medium text-gray-900"><?php echo htmlspecialchars($record['student_name']); ?></div>
                                             <div class="text-xs text-gray-500"><?php echo htmlspecialchars($record['student_code']); ?></div>

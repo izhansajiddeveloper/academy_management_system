@@ -56,7 +56,7 @@
 │   ├── add_fee_structure.php
 │   ├── fee_collection.php
 │   ├── collect_fee.php
-│   └── fee_history.php
+│   └── payment_history.php
 
 ├── expenses/
 │   ├── expenses.php
